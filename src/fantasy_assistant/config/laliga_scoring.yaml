@@ -1,0 +1,28 @@
+# How LaLiga Fantasy (Marca) turns match events into points.
+# APPROXIMATE — transcribe the official table for the current season before the
+# scoring engine goes live. The Marca game also adds a performance-rating bonus
+# (SofaScore-style) that is modelled separately, not here.
+events:
+  appearance_under_60: 1
+  appearance_60_plus: 2
+
+  goal_GK: 10
+  goal_DEF: 6
+  goal_MID: 5
+  goal_FWD: 4
+  assist: 3
+
+  clean_sheet_GK: 4
+  clean_sheet_DEF: 4
+  clean_sheet_MID: 1
+
+  save_per_3: 1
+  penalty_saved: 5
+  penalty_missed: -2
+
+  goals_conceded_per_2_GK: -1
+  goals_conceded_per_2_DEF: -1
+
+  yellow_card: -1
+  red_card: -3
+  own_goal: -2

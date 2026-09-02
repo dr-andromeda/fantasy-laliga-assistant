@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local fantasy data — only the sample snapshot is committed
+/data/*
+!/data/sample/
+data/snapshots/
+
+# Personal squad files
+squad.yaml
+squad.*.yaml
+!examples/squad.example.yaml
+
+# Secrets (for future import_squad)
+.env
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

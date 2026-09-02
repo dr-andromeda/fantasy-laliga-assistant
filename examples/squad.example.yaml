@@ -1,0 +1,29 @@
+# A hand-written squad. Names are fuzzy-matched against the player universe, so
+# accents and short forms are fine. Add "(bench)" to keep a player out of the XI,
+# and "captain: true" to pick your captain.
+budget_remaining: 2_600_000
+
+players:
+  # goalkeepers
+  - Courtois
+  - name: Unai Simon (bench)
+
+  # defenders
+  - Carvajal
+  - Cubarsi
+  - Balde
+  - Gimenez
+  - name: Vivian (bench)
+
+  # midfielders
+  - name: Bellingham
+    captain: true
+  - Pedri
+  - Isco
+  - Baena
+  - name: Zubimendi (bench)
+
+  # forwards
+  - Lewandowski
+  - Vinicius
+  - name: Griezmann (bench)

@@ -1,0 +1,41 @@
+id,name,team,position,price,total_points,points_by_gameweek,status
+1,Courtois,Real Madrid,GK,18000000,58,6;9;7;4;12;10;10,ok
+2,ter Stegen,Barcelona,GK,15500000,49,5;7;3;9;8;8;9,injured
+3,Unai Simón,Athletic,GK,9800000,52,7;8;6;9;5;7;10,ok
+4,Rulli,Betis,GK,6200000,44,4;6;9;5;7;6;7,ok
+5,Remiro,Real Sociedad,GK,7100000,47,8;5;7;6;5;9;7,ok
+6,Mamardashvili,Valencia,GK,5800000,40,3;7;5;8;4;6;7,doubtful
+7,Carvajal,Real Madrid,DEF,14200000,61,7;8;9;6;10;11;10,ok
+8,Militão,Real Madrid,DEF,10500000,45,6;5;7;4;8;7;8,ok
+9,Cubarsí,Barcelona,DEF,9200000,54,8;7;6;9;7;9;8,ok
+10,Balde,Barcelona,DEF,8800000,50,7;6;8;5;9;7;8,ok
+11,Giménez,Atlético,DEF,7900000,48,6;7;5;8;6;9;7,ok
+12,Le Normand,Atlético,DEF,7400000,46,5;6;7;6;8;7;7,ok
+13,Vivian,Athletic,DEF,6100000,49,7;8;6;7;5;9;7,ok
+14,Pubill,Almería,DEF,4300000,41,5;6;4;7;6;7;6,ok
+15,Bartra,Betis,DEF,4900000,43,6;5;7;5;8;6;6,ok
+16,Aihen,Real Sociedad,DEF,3800000,35,4;5;6;4;7;5;4,ok
+17,Foulquier,Girona,DEF,4100000,44,6;7;5;8;6;7;5,ok
+18,Bellingham,Real Madrid,MID,32500000,88,12;10;14;9;13;15;15,ok
+19,Pedri,Barcelona,MID,19800000,66,9;8;10;7;11;10;11,ok
+20,de Jong,Barcelona,MID,15200000,57,7;9;6;8;9;10;8,ok
+21,Rodri,Manchester City,MID,3000000,0,0,injured
+22,Baena,Villarreal,MID,12400000,71,10;9;11;8;12;10;11,ok
+23,Isco,Betis,MID,11800000,74,11;10;9;12;10;11;11,ok
+24,Zubimendi,Real Sociedad,MID,9600000,52,7;6;8;7;8;9;7,ok
+25,Oyarzabal,Real Sociedad,MID,13100000,63,8;9;7;10;9;10;10,ok
+26,Fabián,Betis,MID,7200000,49,6;7;8;6;7;8;7,ok
+27,Nico Williams,Athletic,MID,16700000,69,10;9;11;8;10;11;10,doubtful
+28,Sancet,Athletic,MID,8900000,55,8;7;9;6;9;8;8,ok
+29,Rodrigo Riquelme,Atlético,MID,6800000,47,6;7;5;8;7;7;7,ok
+30,Gil,Girona,MID,5600000,50,7;8;6;7;8;7;7,ok
+31,Lewandowski,Barcelona,FWD,29800000,79,11;9;13;8;12;13;13,ok
+32,Vinícius Jr,Real Madrid,FWD,31200000,82,12;10;13;9;12;14;12,ok
+33,Griezmann,Atlético,FWD,24600000,77,10;11;9;12;11;12;12,ok
+34,Sørloth,Atlético,FWD,13900000,64,9;8;10;7;10;10;10,ok
+35,Budimir,Osasuna,FWD,10200000,61,8;9;7;10;8;9;10,ok
+36,Ayoze,Villarreal,FWD,9700000,58,8;7;9;7;9;9;9,ok
+37,Guiu,Barcelona,FWD,3400000,22,2;4;3;5;2;3;3,ok
+38,Bakambu,Betis,FWD,4600000,33,4;5;3;6;4;6;5,ok
+39,Raúl García,Athletic,FWD,3900000,28,3;4;5;3;5;4;4,doubtful
+40,Roberto Fernández,Espanyol,FWD,5100000,40,5;6;4;7;5;7;6,ok

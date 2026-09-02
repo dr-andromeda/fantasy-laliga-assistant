@@ -1,0 +1,25 @@
+# Squad-building rules for LaLiga Fantasy (Marca), classic mode.
+# NOTE: verify against the current season's official rules before relying on these.
+squad_size: 15
+lineup_size: 11
+
+squad_by_position:
+  GK: 2
+  DEF: 5
+  MID: 5
+  FWD: 3
+
+lineup_min_by_position:
+  GK: 1
+  DEF: 3
+  MID: 2
+  FWD: 1
+
+lineup_max_by_position:
+  GK: 1
+  DEF: 5
+  MID: 5
+  FWD: 3
+
+# LaLiga Fantasy classic does not cap players per real club; set an int to enforce one.
+max_players_per_club: null
