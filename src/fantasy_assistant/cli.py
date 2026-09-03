@@ -9,9 +9,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from fantasy_assistant.model import Position
+from fantasy_assistant.model import Position, Squad
+from fantasy_assistant.prediction import PointsPredictor, PredictorConfig, SquadProjection
 from fantasy_assistant.providers import AVAILABLE, get_provider
-from fantasy_assistant.squad_io import SquadResolutionError, load_squad
+from fantasy_assistant.squad_io import SquadResolutionError, load_squad, match_player
 from fantasy_assistant.valuation import SquadValuation, value_squad
 
 app = typer.Typer(
@@ -29,9 +30,8 @@ console = Console()
 ProviderOpt = Annotated[
     str, typer.Option("--provider", "-p", help=f"Fantasy platform: {', '.join(AVAILABLE)}")
 ]
-SourceOpt = Annotated[
-    str, typer.Option("--source", help="Data source: auto | api | csv")
-]
+SourceOpt = Annotated[str, typer.Option("--source", help="Data source: auto | api | csv")]
+HorizonOpt = Annotated[int, typer.Option("--horizon", help="Gameweeks to project ahead")]
 
 
 def _euros(value: float) -> str:
@@ -82,11 +82,12 @@ def squad_show(
     squad_file: Annotated[Path, typer.Option("--squad", "-s", help="Path to squad.yaml")],
     provider: ProviderOpt = "laliga",
     source: SourceOpt = "auto",
+    horizon: HorizonOpt = 3,
 ) -> None:
-    """Resolve a hand-written squad file and print it valued."""
+    """Resolve a hand-written squad file, value it, and project its points."""
     prov = get_provider(provider, source=source)
     universe = prov.load_players()
-    fixtures = prov.fixtures()
+    fixtures = prov.fixtures(upcoming=max(horizon, 5))
     constraints = prov.constraints()
 
     try:
@@ -96,26 +97,36 @@ def squad_show(
         raise typer.Exit(1) from exc
 
     valuation = value_squad(squad, fixtures, violations=squad.validate_against(constraints))
-    _print_squad(valuation, squad)
+    predictor = PointsPredictor(universe, fixtures, PredictorConfig.load())
+    projection = predictor.predict_squad(squad, horizon)
+    _print_squad(valuation, squad, projection)
 
 
-def _print_squad(v: SquadValuation, squad: object) -> None:
+def _print_squad(v: SquadValuation, squad: Squad, proj: SquadProjection) -> None:
+    proj_by_id = {p.player_id: p for p in proj.per_player}
+    sp_by_id = {sp.player.id: sp for sp in squad.players}
+
     table = Table(title="Your squad")
-    for col in ("Player", "Team", "Pos", "XI", "Price", "Pts", "Form", "Next"):
-        table.add_column(col, justify="right" if col not in ("Player", "Team", "Next") else "left")
+    columns = (
+        "Player", "Team", "Pos", "XI", "Price", "Pts", "Form", "Next", f"Proj {proj.horizon}GW",
+    )
+    for col in columns:
+        left = col in ("Player", "Team", "Next")
+        table.add_column(col, justify="left" if left else "right")
 
-    owned_captain = {id(sp.player): sp for sp in getattr(squad, "players", [])}
     for row in sorted(v.rows, key=lambda r: (r.player.position.value, -r.form)):
-        sp = owned_captain.get(id(row.player))
-        xi = "C" if sp and sp.is_captain else ("·" if sp and sp.in_lineup else "bench")
+        sp = sp_by_id.get(row.player.id)
+        xi = "C" if sp and sp.is_captain else ("-" if sp and sp.in_lineup else "bench")
         nxt = (
             f"{'vs' if row.next_is_home else '@'} {row.next_opponent}"
             if row.next_opponent
-            else "—"
+            else "-"
         )
+        pr = proj_by_id[row.player.id]
         table.add_row(
             row.player.name, row.player.team, row.player.position.value, xi,
             _euros(row.player.price), str(row.player.total_points), f"{row.form:.1f}", nxt,
+            f"{pr.expected:.1f}",
         )
     console.print(table)
 
@@ -125,19 +136,52 @@ def _print_squad(v: SquadValuation, squad: object) -> None:
         f"bankroll [b]{_euros(v.bankroll)}[/b]  ·  "
         f"season points [b]{v.season_points}[/b]"
     )
+    console.print(
+        f"Projected XI points, next {proj.horizon} GW: "
+        f"[b]{proj.lineup_expected:.1f}[/b] "
+        f"(band {proj.lineup_low:.1f}-{proj.lineup_high:.1f}), "
+        f"captain worth +{proj.captain_bonus:.1f}"
+    )
+
+    top = max(proj.per_player, key=lambda p: p.expected)
+    console.print(f"\nTop projection — {top.explain().splitlines()[0]}")
+
     if v.is_legal:
         console.print("[green]squad is valid[/green]")
     else:
         console.print("[yellow]rule issues:[/yellow]")
         for problem in v.violations:
-            console.print(f"  • {problem}")
+            console.print(f"  - {problem}")
+
+
+@app.command()
+def predict(
+    name: Annotated[str, typer.Argument(help="Player name (fuzzy-matched)")],
+    provider: ProviderOpt = "laliga",
+    source: SourceOpt = "auto",
+    horizon: HorizonOpt = 5,
+    team: Annotated[str | None, typer.Option("--team", help="Club hint to disambiguate")] = None,
+) -> None:
+    """Show the points projection for one player, with the reasoning."""
+    prov = get_provider(provider, source=source)
+    universe = prov.load_players()
+    fixtures = prov.fixtures(upcoming=max(horizon, 5))
+
+    try:
+        player = match_player(name, universe, team_hint=team)
+    except SquadResolutionError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    predictor = PointsPredictor(universe, fixtures, PredictorConfig.load())
+    console.print(predictor.predict(player, horizon).explain())
 
 
 @app.command()
 def providers() -> None:
     """List the fantasy platforms this build supports."""
     for key in AVAILABLE:
-        console.print(f"• {key}")
+        console.print(f"- {key}")
 
 
 if __name__ == "__main__":

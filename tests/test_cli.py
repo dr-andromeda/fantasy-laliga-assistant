@@ -24,11 +24,28 @@ def test_players_list_rejects_bad_sort() -> None:
 
 
 def test_squad_show_runs_on_example() -> None:
-    result = runner.invoke(app, ["squad", "show", "--source", "csv", "--squad", str(EXAMPLE)])
+    result = runner.invoke(
+        app, ["squad", "show", "--source", "csv", "--squad", str(EXAMPLE), "--horizon", "4"]
+    )
     assert result.exit_code == 0, result.output
     assert "Your squad" in result.output
     assert "Bellingham" in result.output
     assert "squad is valid" in result.output
+    assert "Projected XI points, next 4 GW" in result.output
+
+
+def test_predict_command_explains_a_player() -> None:
+    result = runner.invoke(
+        app, ["predict", "Bellingham", "--source", "csv", "--horizon", "3"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Bellingham:" in result.output
+    assert "form rate" in result.output
+
+
+def test_predict_command_rejects_unknown_player() -> None:
+    result = runner.invoke(app, ["predict", "Zlatan Ibrahimovic", "--source", "csv"])
+    assert result.exit_code == 1
 
 
 def test_squad_show_reports_missing_file() -> None:

@@ -38,11 +38,15 @@ first platform — Biwenger and Comunio slot in behind the same seam.
 
 - `fla players list` — browse the player universe (price, season points, recent
   form, points per €M), filtered and sorted.
-- `fla squad show` — take a hand-written `squad.yaml`, resolve the names, and
-  print it valued and checked against the squad rules.
+- `fla squad show` — take a hand-written `squad.yaml`, resolve the names, print it
+  valued and checked against the squad rules, and **project its points** for the
+  next N gameweeks (form × availability × fixture difficulty), with a band and a
+  captain readout.
+- `fla predict "<player>"` — the same projection for one player, broken down
+  gameweek by gameweek with the reasoning.
 
-Next: the points predictor, then the optimizer, then the backtest. See
-[Roadmap](#roadmap).
+Next: the event-level scoring engine, then the transfer optimizer, then the
+backtest. See [Roadmap](#roadmap).
 
 ## Install
 
@@ -104,9 +108,10 @@ payload — that's what keeps it multi-platform.
 
 ## Roadmap
 
-- [ ] Points predictor: minutes model + form + fixture difficulty → expected fantasy points, with uncertainty
-- [ ] Scoring engine driven by `config/*_scoring.yaml`
-- [ ] Transfer / lineup / captain **optimizer** (ILP + qubo-forge / metaheuristics-jvm, compared)
+- [x] Points predictor: form + availability + fixture difficulty → expected points over N gameweeks, with an uncertainty band and per-gameweek explainability (`prediction.py`)
+- [ ] Real minutes model (rotation / injury history) to replace the status multiplier
+- [ ] Event-level scoring engine driven by `config/*_scoring.yaml` (predict goals / assists / clean sheets, then score them)
+- [ ] Transfer / lineup / captain **optimizer** (ILP + qubo-forge / metaheuristics-jvm, compared) — budget models LaLiga Fantasy's temporary-overdraft rule, not a hard cap
 - [ ] **Backtest harness**: recommendations vs. hindsight-optimal vs. do-nothing, points delta per gameweek
 - [ ] `import_squad()` for LaLiga Fantasy (optional, behind the same interface)
 - [ ] Biwenger provider
