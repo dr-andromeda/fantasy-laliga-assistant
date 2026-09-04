@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from fantasy_assistant.model import Position, Squad
+from fantasy_assistant.optimize import best_lineup
 from fantasy_assistant.prediction import PointsPredictor, PredictorConfig, SquadProjection
 from fantasy_assistant.providers import AVAILABLE, get_provider
 from fantasy_assistant.squad_io import SquadResolutionError, load_squad, match_player
@@ -152,6 +153,61 @@ def _print_squad(v: SquadValuation, squad: Squad, proj: SquadProjection) -> None
         console.print("[yellow]rule issues:[/yellow]")
         for problem in v.violations:
             console.print(f"  - {problem}")
+
+
+@squad_app.command("lineup")
+def squad_lineup(
+    squad_file: Annotated[Path, typer.Option("--squad", "-s", help="Path to squad.yaml")],
+    provider: ProviderOpt = "laliga",
+    source: SourceOpt = "auto",
+    horizon: HorizonOpt = 1,
+) -> None:
+    """Recommend the best legal XI and captain from the players you own."""
+    prov = get_provider(provider, source=source)
+    universe = prov.load_players()
+    fixtures = prov.fixtures(upcoming=max(horizon, 5))
+    constraints = prov.constraints()
+
+    try:
+        squad = load_squad(squad_file, universe)
+    except (SquadResolutionError, FileNotFoundError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    projection = PointsPredictor(universe, fixtures, PredictorConfig.load()).predict_squad(
+        squad, horizon
+    )
+    plan = best_lineup(squad, projection, constraints)
+
+    exp = {p.player_id: p.expected for p in projection.per_player}
+    name = {p.player_id: p.player_name for p in projection.per_player}
+    pos = {sp.player.id: sp.player.position.value for sp in squad.players}
+    started = {sp.player.id for sp in squad.players if sp.in_lineup}
+
+    table = Table(title=f"Recommended XI  ({plan.formation_str()},  {horizon} GW)")
+    for col in ("Pos", "Player", f"Proj {horizon}GW", "Role", "Change"):
+        table.add_column(col, justify="left" if col == "Player" else "right")
+    for pid in plan.starters:
+        role = "[b]C[/b]" if pid == plan.captain_id else "-"
+        change = "" if pid in started else "[green]IN[/green]"
+        table.add_row(pos[pid], name[pid], f"{exp[pid]:.1f}", role, change)
+    console.print(table)
+
+    console.print("\nBench (first sub first):")
+    for pid in plan.bench:
+        out = "[yellow]OUT[/yellow]" if pid in started else ""
+        console.print(f"  {pos[pid]:<3} {name[pid]:<22} {exp[pid]:.1f}  {out}")
+
+    console.print(
+        f"\nCaptain: [b]{plan.captain_name}[/b]  ·  "
+        f"projected XI (captain x2): [b]{plan.projected_points:.1f}[/b]"
+    )
+    if plan.improvement is not None:
+        sign = "+" if plan.improvement >= 0 else ""
+        console.print(
+            f"Your current XI projects {plan.current_points:.1f}  ->  "
+            f"[b]{sign}{plan.improvement:.1f}[/b] from these changes"
+        )
 
 
 @app.command()

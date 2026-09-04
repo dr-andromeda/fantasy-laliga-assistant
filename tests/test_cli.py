@@ -48,6 +48,16 @@ def test_predict_command_rejects_unknown_player() -> None:
     assert result.exit_code == 1
 
 
+def test_squad_lineup_recommends_an_xi() -> None:
+    result = runner.invoke(
+        app, ["squad", "lineup", "--source", "csv", "--squad", str(EXAMPLE), "--horizon", "2"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Recommended XI" in result.output
+    assert "Captain:" in result.output
+    assert "Bench (first sub first):" in result.output
+
+
 def test_squad_show_reports_missing_file() -> None:
     result = runner.invoke(app, ["squad", "show", "--source", "csv", "--squad", "nope.yaml"])
     assert result.exit_code == 1

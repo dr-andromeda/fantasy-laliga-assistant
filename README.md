@@ -44,9 +44,12 @@ first platform — Biwenger and Comunio slot in behind the same seam.
   captain readout.
 - `fla predict "<player>"` — the same projection for one player, broken down
   gameweek by gameweek with the reasoning.
+- `fla squad lineup` — recommend the best legal XI and captain from the players
+  you own, and how many points it gains over your current XI. Exact (every valid
+  formation is tried).
 
-Next: the event-level scoring engine, then the transfer optimizer, then the
-backtest. See [Roadmap](#roadmap).
+Next: the transfer optimizer (buy/sell), then the backtest. See
+[Roadmap](#roadmap).
 
 ## Install
 
@@ -111,7 +114,8 @@ payload — that's what keeps it multi-platform.
 - [x] Points predictor: form + availability + fixture difficulty → expected points over N gameweeks, with an uncertainty band and per-gameweek explainability (`prediction.py`)
 - [ ] Real minutes model (rotation / injury history) to replace the status multiplier
 - [ ] Event-level scoring engine driven by `config/*_scoring.yaml` (predict goals / assists / clean sheets, then score them)
-- [ ] Transfer / lineup / captain **optimizer** (ILP + qubo-forge / metaheuristics-jvm, compared) — budget models LaLiga Fantasy's temporary-overdraft rule, not a hard cap
+- [x] Lineup + captain optimizer: pick the best legal XI from the players you own, exact by formation enumeration (`optimize.py`, `fla squad lineup`)
+- [ ] Transfer optimizer (buy/sell) — ILP + qubo-forge / metaheuristics-jvm, compared; budget models LaLiga Fantasy's temporary-overdraft rule, not a hard cap
 - [ ] **Backtest harness**: recommendations vs. hindsight-optimal vs. do-nothing, points delta per gameweek
 - [ ] `import_squad()` for LaLiga Fantasy (optional, behind the same interface)
 - [ ] Biwenger provider
