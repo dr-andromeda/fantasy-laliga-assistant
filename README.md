@@ -79,13 +79,18 @@ fla squad show --squad examples/squad.example.yaml
   Deterministic, offline, used by the tests and examples. Not real data.
 - `--source api`: the live endpoint only, no fallback.
 
-To run on real LaLiga squads, pull them into the (git-ignored) `data/` folder:
+To run on real LaLiga data, pull it into the (git-ignored) `data/` folder:
 
 ```bash
-python scripts/fetch_squads.py                     # LaLiga Fantasy API — real prices + points
-pip install -e ".[scrape]"
-python scripts/fetch_squads.py --source transfermarkt   # real names; prices/points estimated
+python scripts/fetch_squads.py                  # auto: official API, then Biwenger
+python scripts/fetch_squads.py --source biwenger
 ```
+
+`--source biwenger` uses [Biwenger](https://biwenger.as.com)'s public API: one
+unauthenticated request gives every player's **LaLiga Fantasy price**, season
+points, recent form and injury status, plus the next matchday. It's the reliable
+option while the official endpoint is down. (`--source transfermarkt`, needing
+`pip install -e ".[scrape]"`, gets real names only — prices/points estimated.)
 
 `fla` then picks up `data/players.csv` automatically under `--source auto`.
 

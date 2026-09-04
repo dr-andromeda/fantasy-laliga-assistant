@@ -1,26 +1,29 @@
-"""Pull real LaLiga squads into a local, git-ignored ``data/players.csv``.
+"""Pull real LaLiga data into a local, git-ignored ``data/players.csv``.
 
 The committed sample dataset stays fictional (see ``data/sample/``). This script
-is for *your* machine: it writes ``data/players.csv``, which the provider prefers
-over the sample, so ``fla`` runs on real names.
+is for *your* machine: it writes ``data/players.csv`` (and ``data/fixtures.csv``),
+which the provider prefers over the sample under ``--source auto``.
 
-Two sources:
+Sources, best first:
 
-* ``--source api`` (default) -- the LaLiga Fantasy public endpoint. Real players,
-  real prices, real points history. Everything ``fla`` needs. Sometimes down.
-* ``--source transfermarkt`` -- scrapes the 20 club squad pages. Real names,
-  clubs and positions; **prices are synthetic** (derived from market value) and
-  there is **no points history**, so ``fla predict`` / projections are weak
-  until you re-run with ``--source api``.
+* ``--source auto`` (default) -- try the official LaLiga Fantasy endpoint, then
+  fall back to Biwenger.
+* ``--source api`` -- the official LaLiga Fantasy endpoint only. Real prices,
+  points and fixtures. Frequently returns 502.
+* ``--source biwenger`` -- Biwenger's public API. One unauthenticated request
+  gives every player's **LaLiga Fantasy price** (``fantasyPrice``), season
+  points, recent form and injury status, plus the next matchday's fixtures.
+  A different game, but the fantasy prices are LaLiga Fantasy's.
+* ``--source transfermarkt`` -- scrapes the 20 club squad pages for real names,
+  clubs and positions only; prices and points are rough estimates.
 
 Usage::
 
-    pip install -e ".[scrape]"          # for the transfermarkt source
-    python scripts/fetch_squads.py                    # tries the API
-    python scripts/fetch_squads.py --source transfermarkt
+    python scripts/fetch_squads.py                        # auto (api -> biwenger)
+    python scripts/fetch_squads.py --source biwenger
+    pip install -e ".[scrape]" && python scripts/fetch_squads.py --source transfermarkt
 
-Be considerate with Transfermarkt: this makes ~21 requests with a pause between
-them, and the data is not redistributed (``data/`` is git-ignored).
+The data is not redistributed (``data/`` is git-ignored).
 """
 
 from __future__ import annotations
@@ -90,6 +93,67 @@ def from_api() -> None:
             "status": str(p.get("playerStatus") or "ok").lower(),
         })
     _write(players, "players.csv", "Real LaLiga Fantasy data (API). Local copy, not committed.")
+
+
+# --- source: Biwenger -------------------------------------------------------
+
+_BIWENGER = "https://cf.biwenger.com/api/v2/competitions/la-liga/data?lang=es&score=1"
+_BIW_POS = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
+_BIW_STATUS = {
+    "ok": "ok", "injured": "injured", "doubt": "doubtful",
+    "sanctioned": "suspended", "discarded": "injured", "unknown": "unknown",
+}
+
+
+def from_biwenger() -> None:
+    with httpx.Client(headers={"User-Agent": UA}, timeout=25.0) as client:
+        data = client.get(_BIWENGER).raise_for_status().json()["data"]
+
+    team_name = {int(tid): t["name"] for tid, t in data["teams"].items()}
+
+    players: list[dict[str, object]] = []
+    for p in data["players"].values():
+        pos = _BIW_POS.get(p.get("position"))
+        if pos is None:  # position 5 == coach
+            continue
+        # fitness slots are a GW score (int), None, or a status string ("injured", ...)
+        fitness = [int(x) for x in (p.get("fitness") or []) if isinstance(x, (int, float))]
+        players.append({
+            "id": str(p["id"]),
+            "name": p["name"],
+            "team": team_name.get(p.get("teamID"), "unknown"),
+            "position": pos,
+            # `price` is the LaLiga Fantasy (Marca) price; `fantasyPrice` is
+            # Biwenger's own inflated game price -- don't confuse them.
+            "price": int(p.get("price") or 0),
+            "total_points": int(p.get("points") or 0),
+            "points_by_gameweek": ";".join(str(x) for x in fitness),
+            "status": _BIW_STATUS.get(p.get("status", "unknown"), "unknown"),
+        })
+    _write(
+        players, "players.csv",
+        "LaLiga Fantasy prices + points via Biwenger's public API. Local, not committed.",
+    )
+
+    # fixtures: teams[].nextGames only carries the next matchday; number the
+    # distinct rounds by date so the predictor has a fixture for GW 1.
+    games: dict[int, dict[str, object]] = {}
+    for t in data["teams"].values():
+        for g in t.get("nextGames") or []:
+            games[g["id"]] = g
+    round_date: dict[int, int] = {}
+    for g in games.values():
+        rid = g["round"]["id"]
+        round_date[rid] = min(round_date.get(rid, g["date"]), g["date"])
+    gw_of = {rid: i + 1 for i, rid in enumerate(sorted(round_date, key=round_date.get))}
+    fixtures = [
+        {"gameweek": gw_of[g["round"]["id"]],
+         "home_team": team_name.get(g["home"]["id"], "?"),
+         "away_team": team_name.get(g["away"]["id"], "?")}
+        for g in sorted(games.values(), key=lambda g: g["date"])
+    ]
+    if fixtures:
+        _write(fixtures, "fixtures.csv", "Next matchday via Biwenger. Local, not committed.")
 
 
 # --- source: Transfermarkt ---------------------------------------------------
@@ -182,12 +246,24 @@ def from_transfermarkt() -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--source", choices=("api", "transfermarkt"), default="api")
-    args = ap.parse_args()
-    if args.source == "api":
+    ap.add_argument(
+        "--source", default="auto",
+        choices=("auto", "api", "biwenger", "transfermarkt"),
+    )
+    source = ap.parse_args().source
+
+    if source == "api":
         from_api()
-    else:
+    elif source == "biwenger":
+        from_biwenger()
+    elif source == "transfermarkt":
         from_transfermarkt()
+    else:  # auto
+        try:
+            from_api()
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            print(f"official API unavailable ({exc}); trying Biwenger")
+            from_biwenger()
 
 
 if __name__ == "__main__":
