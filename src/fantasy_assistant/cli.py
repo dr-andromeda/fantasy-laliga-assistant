@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from fantasy_assistant.backtest import run_backtest
 from fantasy_assistant.model import Position, Squad
 from fantasy_assistant.optimize import best_lineup
 from fantasy_assistant.prediction import PointsPredictor, PredictorConfig, SquadProjection
@@ -20,7 +21,7 @@ from fantasy_assistant.valuation import SquadValuation, value_squad
 app = typer.Typer(
     add_completion=False,
     help="Decision-support for LaLiga Fantasy: value your squad, spot bargains, "
-    "and (soon) get transfer and lineup recommendations.",
+    "and get transfer and lineup recommendations, backed by a backtest.",
 )
 players_app = typer.Typer(help="Explore the player universe.")
 squad_app = typer.Typer(help="Work with your own squad.")
@@ -277,6 +278,65 @@ def squad_transfers(
             f"[red]WARNING: ends {plan.overdraft / 1_000_000:.2f}M short. Clear it "
             "(sell/rescind) before the next deadline or you score ZERO points that "
             "gameweek.[/red]"
+        )
+
+
+@squad_app.command("backtest")
+def squad_backtest(
+    squad_file: Annotated[Path, typer.Option("--squad", "-s", help="Path to squad.yaml")],
+    provider: ProviderOpt = "laliga",
+    source: SourceOpt = "auto",
+    half_life: Annotated[
+        float | None,
+        typer.Option("--half-life", help="Form half-life in GW (default: prediction.yaml)"),
+    ] = None,
+    min_history: Annotated[
+        int, typer.Option("--min-history", help="Gameweeks of history before the first prediction")
+    ] = 2,
+) -> None:
+    """Walk-forward backtest of the lineup/captain pick vs. static and hindsight.
+
+    Only replays the trailing gameweek history each player already carries -- see
+    `fantasy_assistant.backtest` for exactly what is (and isn't) evaluated.
+    """
+    prov = get_provider(provider, source=source)
+    universe = prov.load_players()
+    constraints = prov.constraints()
+
+    try:
+        squad = load_squad(squad_file, universe)
+    except (SquadResolutionError, FileNotFoundError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    hl = half_life if half_life is not None else PredictorConfig.load().form_half_life
+    try:
+        report = run_backtest(
+            squad, constraints, form_half_life=hl, min_history=min_history
+        )
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    table = Table(title=f"Backtest — {len(report.weeks)} gameweeks")
+    columns = ("GW", "Recommended", "Static", "Hindsight", "Captain (rec.)", "Captain (hindsight)")
+    for col in columns:
+        table.add_column(col, justify="left" if "Captain" in col else "right")
+    for w in report.weeks:
+        table.add_row(
+            str(w.gameweek_index), f"{w.recommended_points:.1f}", f"{w.static_points:.1f}",
+            f"{w.hindsight_points:.1f}", w.recommended_captain, w.hindsight_captain,
+        )
+    console.print(table)
+
+    console.print(
+        f"\nTotals — recommended [b]{report.recommended_total:.1f}[/b]  ·  "
+        f"static {report.static_total:.1f}  ·  hindsight {report.hindsight_total:.1f}"
+    )
+    console.print(f"Edge over doing nothing: [b]{report.edge_over_static:+.1f}[/b] pts")
+    if report.capture_rate is not None:
+        console.print(
+            f"Captured [b]{report.capture_rate * 100:.0f}%[/b] of the hindsight-optimal points"
         )
 
 

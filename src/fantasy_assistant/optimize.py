@@ -58,7 +58,23 @@ def best_lineup(
 ) -> LineupPlan:
     exp = {p.player_id: p.expected for p in projection.per_player}
     name = {p.player_id: p.player_name for p in projection.per_player}
+    return lineup_from_expected(squad, exp, name, constraints)
 
+
+def lineup_from_expected(
+    squad: Squad,
+    expected: dict[str, float],
+    names: dict[str, str],
+    constraints: Constraints,
+) -> LineupPlan:
+    """The same exact-by-enumeration search as :func:`best_lineup`, driven by a plain
+    ``player_id -> expected points`` mapping instead of a :class:`SquadProjection`.
+
+    This is what lets :mod:`fantasy_assistant.backtest` reuse the *identical* optimizer
+    for both "predicted lineup, ranked by forecast" and "hindsight-optimal lineup,
+    ranked by what actually happened" -- only the mapping changes, not the logic.
+    """
+    exp = expected
     ranked: dict[Position, list[str]] = {pos: [] for pos in Position}
     for sp in squad.players:
         ranked[sp.player.position].append(sp.player.id)
@@ -94,7 +110,7 @@ def best_lineup(
         starters=starters,
         bench=bench,
         captain_id=captain_id,
-        captain_name=name.get(captain_id, captain_id),
+        captain_name=names.get(captain_id, captain_id),
         projected_points=round(score, 2),
         current_points=None if current is None else round(current, 2),
         improvement=None if current is None else round(score - current, 2),

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "fantasy-laliga-assistant"
 version = "0.1.0"
-description = "Decision-support tool for LaLiga Fantasy: value your squad and (soon) get transfer, lineup and captain recommendations, with a rigorous backtest."
+description = "Decision-support tool for LaLiga Fantasy: value your squad and get transfer, lineup and captain recommendations, backed by a walk-forward backtest."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

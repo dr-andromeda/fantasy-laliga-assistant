@@ -1,6 +1,6 @@
 # fantasy-laliga-assistant
 
-**A decision-support tool for LaLiga Fantasy: value your squad, spot bargains, and — soon — get transfer, lineup and captain recommendations backed by a proper backtest.**
+**A decision-support tool for LaLiga Fantasy: value your squad, spot bargains, and get transfer, lineup and captain recommendations backed by a proper backtest.**
 
 [![CI](https://github.com/dr-andromeda/fantasy-laliga-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/dr-andromeda/fantasy-laliga-assistant/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -50,8 +50,13 @@ first platform — Biwenger and Comunio slot in behind the same seam.
 - `fla squad transfers` — suggest same-position swaps that raise your projected
   points, under your real budget. Exact branch-and-bound over a pruned candidate
   set; see [How the transfer optimizer works](#how-the-transfer-optimizer-works).
+- `fla squad backtest` — walk-forward backtest of the lineup/captain pick
+  against a static "do nothing" XI and a hindsight-optimal upper bound, using
+  each player's own trailing gameweek history. No lookahead: every prediction
+  only sees gameweeks before the one it's scored against. See
+  [How the backtest works](#how-the-backtest-works).
 
-Next: the backtest harness. See [Roadmap](#roadmap).
+See [Roadmap](#roadmap) for what's still open.
 
 ## Install
 
@@ -72,6 +77,9 @@ fla squad show --squad examples/squad.example.yaml
 
 # suggest up to 3 transfers that raise your projected points
 fla squad transfers --squad examples/squad.example.yaml --transfers 3
+
+# backtest the lineup/captain pick against static and hindsight
+fla squad backtest --squad examples/squad.example.yaml
 ```
 
 ### Where the data comes from
@@ -140,6 +148,35 @@ default the optimizer treats the budget as a hard cap. Pass
 deadline (e.g. by rescinding a contract at 80% value) — the plan then tells
 you exactly how far short you are.
 
+## How the backtest works
+
+`fla squad backtest` replays each owned player's own trailing gameweek
+history week by week. At step `g` it predicts using only games *before* `g`
+(an expanding window, recency-weighted the same way as the live predictor)
+and scores the pick against what actually happened in game `g` — no
+lookahead. Three arms are compared:
+
+- **Recommended** — the lineup/captain the form-based forecast would have
+  picked, scored on the real outcome.
+- **Static** — whatever XI and captain `squad.yaml` already flags, replayed
+  unchanged every week. The "do nothing" baseline.
+- **Hindsight** — the best possible XI and captain *for that gameweek*,
+  chosen with perfect knowledge of the actual points. An upper bound, not a
+  strategy anyone could have played.
+
+Recommended and hindsight are the *same* call to
+`optimize.lineup_from_expected` — only the points mapping changes (forecast
+vs. actual). Whatever gap remains between them is exactly the cost of not
+knowing the future in advance, not a difference in how the two picks were
+made.
+
+**Scope, honestly.** This only backtests the lineup/captain choice, using
+form alone — there's no historical fixture-difficulty or per-week injury
+status to draw on (only the current squad snapshot has that), and it doesn't
+touch transfers, which would need a season of price history this project
+doesn't have. Treat the output as "how good is the lineup-picking logic on
+its own," not a claim about the full tool.
+
 ## How it's built
 
 ```
@@ -152,6 +189,7 @@ valuation.py        the no-model baseline valuation
 prediction.py       the points predictor (form x minutes x fixture)
 optimize.py         lineup + captain optimizer
 transfers.py        transfer optimizer (same-position swaps, budget-aware)
+backtest.py         walk-forward backtest: recommended vs. static vs. hindsight
 cli.py              the `fla` command
 config/             per-provider scoring rules and squad constraints (YAML)
 ```
@@ -167,7 +205,8 @@ payload — that's what keeps it multi-platform.
 - [x] Lineup + captain optimizer: pick the best legal XI from the players you own, exact by formation enumeration (`optimize.py`, `fla squad lineup`)
 - [x] Transfer optimizer: same-position swaps, exact branch-and-bound over a pruned candidate set, budget-aware per the verified overdraft rule (`transfers.py`, `fla squad transfers`)
 - [ ] Cross-position squad restructuring, and a solver comparison against qubo-forge / metaheuristics-jvm on the larger combinatorial version of the problem
-- [ ] **Backtest harness**: recommendations vs. hindsight-optimal vs. do-nothing, points delta per gameweek
+- [x] **Backtest harness**: lineup/captain recommendation vs. hindsight-optimal vs. do-nothing, walk-forward with no lookahead (`backtest.py`, `fla squad backtest`)
+- [ ] Extend the backtest to cover transfers (needs a season of historical prices, which isn't available yet) and real fixture/minutes history instead of form alone
 - [ ] `import_squad()` for LaLiga Fantasy (optional, behind the same interface)
 - [ ] Biwenger provider
 - [ ] Web dashboard (the core is already a library)
