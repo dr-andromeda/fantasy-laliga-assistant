@@ -47,9 +47,11 @@ first platform — Biwenger and Comunio slot in behind the same seam.
 - `fla squad lineup` — recommend the best legal XI and captain from the players
   you own, and how many points it gains over your current XI. Exact (every valid
   formation is tried).
+- `fla squad transfers` — suggest same-position swaps that raise your projected
+  points, under your real budget. Exact branch-and-bound over a pruned candidate
+  set; see [How the transfer optimizer works](#how-the-transfer-optimizer-works).
 
-Next: the transfer optimizer (buy/sell), then the backtest. See
-[Roadmap](#roadmap).
+Next: the backtest harness. See [Roadmap](#roadmap).
 
 ## Install
 
@@ -67,6 +69,9 @@ fla players list --position FWD --sort form -n 10
 
 # value a squad you typed by hand
 fla squad show --squad examples/squad.example.yaml
+
+# suggest up to 3 transfers that raise your projected points
+fla squad transfers --squad examples/squad.example.yaml --transfers 3
 ```
 
 ### Where the data comes from
@@ -114,6 +119,27 @@ players:
   # ...
 ```
 
+## How the transfer optimizer works
+
+`fla squad transfers` only proposes **same-position swaps** — the one kind of
+transfer that keeps a LaLiga Fantasy squad (2 GK / 5 DEF / 5 MID / 3 FWD)
+legal on its own, no second move required to rebalance. For each owned
+player it keeps the top few same-position replacements by projected gain
+(`--candidates`, default 5), then an exact branch-and-bound search picks the
+combination — up to `--transfers` moves, never buying the same target twice —
+with the highest total gain that fits the budget and any per-club cap.
+
+**The budget rule.** LaLiga Fantasy lets a signing push your balance negative
+with no cap on how far — but if you're still in the red when the *next*
+gameweek kicks off, **you score zero points that gameweek**, whatever your
+lineup ([official rules](https://fantasy-marca.helpscoutdocs.com/article/381-reglas-del-juego),
+[confirmed here](https://laligafantasy.zendesk.com/hc/en-us/articles/360007533594) —
+verified September 2026). That risk dwarfs almost any transfer gain, so by
+default the optimizer treats the budget as a hard cap. Pass
+`--allow-overdraft` only if you intend to clear the gap yourself before the
+deadline (e.g. by rescinding a contract at 80% value) — the plan then tells
+you exactly how far short you are.
+
 ## How it's built
 
 ```
@@ -123,6 +149,9 @@ providers/          one adapter per platform (LaLiga Fantasy today)
 model.py            Player, Squad, Fixture, ScoringRules, Constraints  (the shared vocabulary)
 squad_io.py         load squad.yaml + fuzzy-match names
 valuation.py        the no-model baseline valuation
+prediction.py       the points predictor (form x minutes x fixture)
+optimize.py         lineup + captain optimizer
+transfers.py        transfer optimizer (same-position swaps, budget-aware)
 cli.py              the `fla` command
 config/             per-provider scoring rules and squad constraints (YAML)
 ```
@@ -136,7 +165,8 @@ payload — that's what keeps it multi-platform.
 - [ ] Real minutes model (rotation / injury history) to replace the status multiplier
 - [ ] Event-level scoring engine driven by `config/*_scoring.yaml` (predict goals / assists / clean sheets, then score them)
 - [x] Lineup + captain optimizer: pick the best legal XI from the players you own, exact by formation enumeration (`optimize.py`, `fla squad lineup`)
-- [ ] Transfer optimizer (buy/sell) — ILP + qubo-forge / metaheuristics-jvm, compared; budget models LaLiga Fantasy's temporary-overdraft rule, not a hard cap
+- [x] Transfer optimizer: same-position swaps, exact branch-and-bound over a pruned candidate set, budget-aware per the verified overdraft rule (`transfers.py`, `fla squad transfers`)
+- [ ] Cross-position squad restructuring, and a solver comparison against qubo-forge / metaheuristics-jvm on the larger combinatorial version of the problem
 - [ ] **Backtest harness**: recommendations vs. hindsight-optimal vs. do-nothing, points delta per gameweek
 - [ ] `import_squad()` for LaLiga Fantasy (optional, behind the same interface)
 - [ ] Biwenger provider

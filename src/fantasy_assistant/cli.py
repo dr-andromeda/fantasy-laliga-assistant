@@ -14,6 +14,7 @@ from fantasy_assistant.optimize import best_lineup
 from fantasy_assistant.prediction import PointsPredictor, PredictorConfig, SquadProjection
 from fantasy_assistant.providers import AVAILABLE, get_provider
 from fantasy_assistant.squad_io import SquadResolutionError, load_squad, match_player
+from fantasy_assistant.transfers import suggest_transfers
 from fantasy_assistant.valuation import SquadValuation, value_squad
 
 app = typer.Typer(
@@ -207,6 +208,75 @@ def squad_lineup(
         console.print(
             f"Your current XI projects {plan.current_points:.1f}  ->  "
             f"[b]{sign}{plan.improvement:.1f}[/b] from these changes"
+        )
+
+
+@squad_app.command("transfers")
+def squad_transfers(
+    squad_file: Annotated[Path, typer.Option("--squad", "-s", help="Path to squad.yaml")],
+    provider: ProviderOpt = "laliga",
+    source: SourceOpt = "auto",
+    horizon: HorizonOpt = 3,
+    transfers: Annotated[
+        int, typer.Option("--transfers", "-t", help="Max transfers to suggest")
+    ] = 3,
+    candidates: Annotated[
+        int, typer.Option("--candidates", help="Replacement candidates considered per player")
+    ] = 5,
+    allow_overdraft: Annotated[
+        bool,
+        typer.Option(
+            "--allow-overdraft",
+            help="Allow a plan that leaves your balance negative (you must clear it "
+            "yourself before the next deadline, or you score 0 points that gameweek)",
+        ),
+    ] = False,
+) -> None:
+    """Suggest same-position transfers that raise your projected points."""
+    prov = get_provider(provider, source=source)
+    universe = prov.load_players()
+    fixtures = prov.fixtures(upcoming=max(horizon, 5))
+    constraints = prov.constraints()
+
+    try:
+        squad = load_squad(squad_file, universe)
+    except (SquadResolutionError, FileNotFoundError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    predictor = PointsPredictor(universe, fixtures, PredictorConfig.load())
+    plan = suggest_transfers(
+        squad, universe, predictor, constraints,
+        horizon=horizon, max_transfers=transfers, candidates_per_slot=candidates,
+        allow_overdraft=allow_overdraft,
+    )
+
+    if not plan.moves:
+        console.print(f"[yellow]No transfer over {horizon} GW beats keeping your squad.[/yellow]")
+        return
+
+    table = Table(title=f"Suggested transfers  ({horizon} GW, +{plan.total_gain:.1f} pts)")
+    for col in ("Pos", "Out", "In", "Net cost", "Gain"):
+        table.add_column(col, justify="left" if col in ("Pos", "Out", "In") else "right")
+    for m in plan.moves:
+        table.add_row(
+            m.position.value,
+            f"{m.sell_name} ({m.sell_team})",
+            f"{m.buy_name} ({m.buy_team})",
+            f"{m.net_cost / 1_000_000:+.2f}M",
+            f"+{m.gain:.1f}",
+        )
+    console.print(table)
+
+    console.print(
+        f"\nNet spend [b]{plan.net_cost / 1_000_000:+.2f}M[/b]  ·  "
+        f"budget {plan.budget_before / 1_000_000:.2f}M -> {plan.budget_after / 1_000_000:.2f}M"
+    )
+    if plan.overdraft:
+        console.print(
+            f"[red]WARNING: ends {plan.overdraft / 1_000_000:.2f}M short. Clear it "
+            "(sell/rescind) before the next deadline or you score ZERO points that "
+            "gameweek.[/red]"
         )
 
 
