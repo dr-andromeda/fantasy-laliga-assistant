@@ -1,29 +1,33 @@
 # A hand-written squad. Names are fuzzy-matched against the player universe, so
-# accents and short forms are fine. Add "(bench)" to keep a player out of the XI,
-# and "captain: true" to pick your captain.
+# accents, lower-case and short forms are fine. Add "(bench)" to keep a player
+# out of the XI, "captain: true" to pick your captain, and a "team:" hint to
+# disambiguate.
+#
+# These names belong to the FICTIONAL sample league in data/sample/. For your
+# real LaLiga Fantasy squad, run `fla` with --source api and use real names.
 budget_remaining: 2_600_000
 
 players:
   # goalkeepers
-  - Courtois
-  - name: Unai Simon (bench)
+  - Catalan
+  - name: Ferreras (bench)
 
   # defenders
-  - Carvajal
-  - Cubarsi
-  - Balde
-  - Gimenez
-  - name: Vivian (bench)
+  - Benavente
+  - hidalgo
+  - Ruano
+  - Miralles
+  - name: Vilanova (bench)
 
   # midfielders
-  - name: Bellingham
+  - name: Abad
     captain: true
-  - Pedri
-  - Isco
-  - Baena
-  - name: Zubimendi (bench)
+  - Fandino
+  - Novoa
+  - Lastra
+  - name: Peralta (bench)
 
   # forwards
-  - Lewandowski
-  - Vinicius
-  - name: Griezmann (bench)
+  - Cifre
+  - Amador
+  - name: Fabra (bench)

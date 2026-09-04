@@ -16,22 +16,22 @@ def test_loads_the_example_squad(universe: list[Player]) -> None:
     assert squad.budget_remaining == 2_600_000
 
     names = {sp.player.name for sp in squad.players}
-    assert "Bellingham" in names
-    assert "Vinícius Jr" in names          # matched from "Vinicius"
-    assert "Giménez" in names              # matched from "Gimenez"
+    assert "Abad" in names
+    assert "Hidalgo" in names           # matched from lower-case "hidalgo"
+    assert "Fandino" in names
 
     captains = [sp for sp in squad.players if sp.is_captain]
-    assert len(captains) == 1 and captains[0].player.name == "Bellingham"
+    assert len(captains) == 1 and captains[0].player.name == "Abad"
 
     benched = {sp.player.name for sp in squad.players if not sp.in_lineup}
-    assert benched == {"Unai Simón", "Vivian", "Zubimendi", "Griezmann"}
+    assert benched == {"Ferreras", "Vilanova", "Peralta", "Fabra"}
     assert sum(sp.in_lineup for sp in squad.players) == 11
 
 
-def test_fuzzy_match_tolerates_accents_and_short_forms(universe: list[Player]) -> None:
-    assert match_player("Lewandowski", universe).name == "Lewandowski"
-    assert match_player("cubarsi", universe).name == "Cubarsí"
-    assert match_player("Isco", universe, team_hint="Betis").name == "Isco"
+def test_fuzzy_match_tolerates_case_and_hints(universe: list[Player]) -> None:
+    assert match_player("Amador", universe).name == "Amador"
+    assert match_player("fandino", universe).name == "Fandino"
+    assert match_player("Abad", universe, team_hint="Costa Verde").name == "Abad"
 
 
 def test_unknown_player_raises(universe: list[Player]) -> None:

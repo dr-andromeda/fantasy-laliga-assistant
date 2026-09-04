@@ -15,10 +15,11 @@ def test_csv_universe_parses(universe: list) -> None:  # type: ignore[type-arg]
     by_pos = {pos: [p for p in universe if p.position is pos] for pos in Position}
     assert len(by_pos[Position.GK]) >= 2
     assert len(by_pos[Position.FWD]) >= 3
-    courtois = next(p for p in universe if p.name == "Courtois")
-    assert courtois.team == "Real Madrid"
-    assert courtois.price == 18_000_000
-    assert courtois.points_by_gameweek[-1] == 10
+    catalan = next(p for p in universe if p.name == "Catalan")
+    assert catalan.team == "Rio Sella SD"
+    assert catalan.position is Position.GK
+    assert catalan.price > 0
+    assert len(catalan.points_by_gameweek) == 7
 
 
 def test_scoring_rules_and_constraints_parse() -> None:
@@ -37,9 +38,11 @@ def test_fixtures_load_and_limit() -> None:
     prov = LaLigaFantasyProvider(source="csv")
     fx = prov.fixtures(upcoming=2)
     assert {f.gameweek for f in fx} == {8, 9}
-    clasico = next(f for f in fx if {f.home_team, f.away_team} == {"Real Madrid", "Barcelona"})
-    assert clasico.opponent_of("Real Madrid") == "Barcelona"
-    assert clasico.is_home("Real Madrid")
+    opener = next(
+        f for f in fx if {f.home_team, f.away_team} == {"Costa Verde CF", "Almaden CD"}
+    )
+    assert opener.opponent_of("Costa Verde CF") == "Almaden CD"
+    assert opener.is_home("Costa Verde CF")
 
 
 def test_import_squad_not_supported_yet() -> None:

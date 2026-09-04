@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import json
+from collections.abc import Iterable, Iterator
 from importlib import resources
 from pathlib import Path
 from typing import Any, Literal
@@ -40,6 +41,13 @@ _STATUS_MAP = {
 }
 
 Source = Literal["auto", "api", "csv"]
+
+
+def _uncommented(lines: Iterable[str]) -> Iterator[str]:
+    """Drop blank lines and ``#`` comments so a CSV can carry a header note."""
+    for line in lines:
+        if line.strip() and not line.lstrip().startswith("#"):
+            yield line
 
 
 class LaLigaFantasyProvider(FantasyProvider):
@@ -75,7 +83,7 @@ class LaLigaFantasyProvider(FantasyProvider):
             return []
         out: list[Fixture] = []
         with path.open(encoding="utf-8") as fh:
-            for row in csv.DictReader(fh):
+            for row in csv.DictReader(_uncommented(fh)):
                 out.append(
                     Fixture(
                         gameweek=int(row["gameweek"]),
@@ -144,7 +152,7 @@ class LaLigaFantasyProvider(FantasyProvider):
     def _players_from_csv(path: Path) -> list[Player]:
         players: list[Player] = []
         with path.open(encoding="utf-8") as fh:
-            for row in csv.DictReader(fh):
+            for row in csv.DictReader(_uncommented(fh)):
                 history_raw = (row.get("points_by_gameweek") or "").strip()
                 history = [int(x) for x in history_raw.split(";") if x] if history_raw else []
                 players.append(

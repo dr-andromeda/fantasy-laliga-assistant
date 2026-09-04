@@ -15,7 +15,7 @@ def test_players_list_runs() -> None:
         app, ["players", "list", "--source", "csv", "--position", "FWD", "-n", "5"]
     )
     assert result.exit_code == 0, result.output
-    assert "Lewandowski" in result.output
+    assert "Cifre" in result.output
 
 
 def test_players_list_rejects_bad_sort() -> None:
@@ -29,17 +29,17 @@ def test_squad_show_runs_on_example() -> None:
     )
     assert result.exit_code == 0, result.output
     assert "Your squad" in result.output
-    assert "Bellingham" in result.output
+    assert "Abad" in result.output
     assert "squad is valid" in result.output
     assert "Projected XI points, next 4 GW" in result.output
 
 
 def test_predict_command_explains_a_player() -> None:
     result = runner.invoke(
-        app, ["predict", "Bellingham", "--source", "csv", "--horizon", "3"]
+        app, ["predict", "Abad", "--source", "csv", "--horizon", "3"]
     )
     assert result.exit_code == 0, result.output
-    assert "Bellingham:" in result.output
+    assert "Abad:" in result.output
     assert "form rate" in result.output
 
 

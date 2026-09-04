@@ -1,19 +1,15 @@
+# FICTIONAL sample fixtures. Not real.
 gameweek,home_team,away_team
-8,Real Madrid,Barcelona
-8,Atlético,Athletic
-8,Real Sociedad,Betis
-8,Villarreal,Girona
-8,Valencia,Osasuna
-8,Espanyol,Almería
-9,Barcelona,Atlético
-9,Athletic,Real Sociedad
-9,Betis,Villarreal
-9,Girona,Real Madrid
-9,Osasuna,Espanyol
-9,Almería,Valencia
-10,Real Madrid,Athletic
-10,Atlético,Real Sociedad
-10,Barcelona,Betis
-10,Villarreal,Valencia
-10,Girona,Osasuna
-10,Almería,Espanyol
+8,Costa Verde CF,Almaden CD
+8,Rio Sella SD,Penarroya FC
+8,Valdes UD,Montoro CF
+8,Sierra Azul CD,Puerto Lobo FC
+8,Najar Balompie,Coto Real CF
+9,Costa Verde CF,Valdes UD
+9,Almaden CD,Montoro CF
+9,Rio Sella SD,Sierra Azul CD
+9,Penarroya FC,Puerto Lobo FC
+10,Costa Verde CF,Puerto Lobo FC
+10,Almaden CD,Najar Balompie
+10,Rio Sella SD,Coto Real CF
+10,Sierra Azul CD,Penarroya FC

@@ -36,7 +36,7 @@ def test_exp_weighted_mean_of_nothing_is_zero() -> None:
 
 def test_team_strength_ranks_and_centres(universe: list[Player]) -> None:
     strength = team_strength(universe)
-    assert strength["Real Madrid"] > strength["Betis"]
+    assert strength["Costa Verde CF"] > strength["Najar Balompie"]
     assert abs(sum(strength.values())) < 1e-9  # z-scores sum to ~0
 
 
@@ -48,7 +48,7 @@ def test_config_loads_from_yaml() -> None:
 
 def test_injured_player_projects_zero(universe: list[Player], fixtures: list[Fixture]) -> None:
     pred = PointsPredictor(universe, fixtures)
-    injured = _player("X", "Real Madrid", Position.FWD, [10, 12, 9], PlayerStatus.INJURED)
+    injured = _player("X", "Costa Verde CF", Position.FWD, [10, 12, 9], PlayerStatus.INJURED)
     proj = pred.predict(injured, horizon=3)
     assert proj.expected == 0.0
     assert proj.minutes_factor == 0.0
@@ -56,8 +56,8 @@ def test_injured_player_projects_zero(universe: list[Player], fixtures: list[Fix
 
 def test_better_form_projects_higher(universe: list[Player], fixtures: list[Fixture]) -> None:
     pred = PointsPredictor(universe, fixtures)
-    hot = _player("Hot", "Real Madrid", Position.MID, [10, 11, 12])
-    cold = _player("Cold", "Real Madrid", Position.MID, [2, 3, 2])
+    hot = _player("Hot", "Costa Verde CF", Position.MID, [10, 11, 12])
+    cold = _player("Cold", "Costa Verde CF", Position.MID, [2, 3, 2])
     assert pred.predict(hot).expected > pred.predict(cold).expected
 
 
@@ -65,7 +65,7 @@ def test_fixture_factor_reacts_to_opponent_and_venue(
     universe: list[Player], fixtures: list[Fixture]
 ) -> None:
     pred = PointsPredictor(universe, fixtures)
-    strong, weak = "Real Madrid", "Betis"
+    strong, weak = "Costa Verde CF", "Najar Balompie"
     assert pred._fixture_factor(strong, is_home=False) < pred._fixture_factor(weak, is_home=False)
     assert pred._fixture_factor(strong, is_home=True) > pred._fixture_factor(strong, is_home=False)
 
@@ -74,7 +74,7 @@ def test_projection_has_one_row_per_gameweek_and_sums(
     universe: list[Player], fixtures: list[Fixture]
 ) -> None:
     pred = PointsPredictor(universe, fixtures)
-    p = _player("Y", "Girona", Position.FWD, [6, 7, 5, 8])
+    p = _player("Y", "Rio Sella SD", Position.FWD, [6, 7, 5, 8])
     proj = pred.predict(p, horizon=4)
     assert len(proj.per_gameweek) == 4
     assert proj.expected == pytest.approx(sum(g.expected for g in proj.per_gameweek))
@@ -85,9 +85,9 @@ def test_squad_projection_counts_lineup_and_captain(
     universe: list[Player], fixtures: list[Fixture]
 ) -> None:
     pred = PointsPredictor(universe, fixtures)
-    a = _player("A", "Real Madrid", Position.MID, [8, 9, 10])
-    b = _player("B", "Barcelona", Position.FWD, [7, 6, 8])
-    bench = _player("C", "Girona", Position.DEF, [3, 4, 3])
+    a = _player("A", "Costa Verde CF", Position.MID, [8, 9, 10])
+    b = _player("B", "Almaden CD", Position.FWD, [7, 6, 8])
+    bench = _player("C", "Rio Sella SD", Position.DEF, [3, 4, 3])
     squad = Squad(players=[
         SquadPlayer(player=a, in_lineup=True, is_captain=True),
         SquadPlayer(player=b, in_lineup=True),
@@ -104,7 +104,7 @@ def test_squad_projection_counts_lineup_and_captain(
 
 def test_explain_is_readable(universe: list[Player], fixtures: list[Fixture]) -> None:
     pred = PointsPredictor(universe, fixtures)
-    proj = pred.predict(_player("Z", "Athletic", Position.MID, [7, 8, 6]), horizon=2)
+    proj = pred.predict(_player("Z", "Montoro CF", Position.MID, [7, 8, 6]), horizon=2)
     text = proj.explain()
     assert "Z:" in text
     assert "GW" in text
