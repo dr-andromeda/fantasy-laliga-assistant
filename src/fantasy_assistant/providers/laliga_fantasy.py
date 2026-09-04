@@ -75,10 +75,13 @@ class LaLigaFantasyProvider(FantasyProvider):
                 if self.source == "api":
                     raise
                 print(f"[laliga] live API unavailable ({exc}); using CSV snapshot")
-        return self._players_from_csv(self._resolve_csv("players.csv"))
+            # after a failed live call, prefer a local data/players.csv if the user has one
+            return self._players_from_csv(self._resolve_csv("players.csv", allow_local=True))
+        # source == "csv": always the bundled fictional sample, for reproducibility
+        return self._players_from_csv(self._resolve_csv("players.csv", allow_local=False))
 
     def fixtures(self, upcoming: int = 5) -> list[Fixture]:
-        path = self._resolve_csv("fixtures.csv")
+        path = self._resolve_csv("fixtures.csv", allow_local=self.source != "csv")
         if not path.exists():
             return []
         out: list[Fixture] = []
@@ -171,10 +174,11 @@ class LaLigaFantasyProvider(FantasyProvider):
         return players
 
     # -- file lookup ------------------------------------------------
-    def _resolve_csv(self, name: str) -> Path:
-        local = self.data_dir / name
-        if local.exists():
-            return local
+    def _resolve_csv(self, name: str, *, allow_local: bool) -> Path:
+        if allow_local:
+            local = self.data_dir / name
+            if local.exists():
+                return local
         return self._sample_path(name)
 
     @staticmethod
