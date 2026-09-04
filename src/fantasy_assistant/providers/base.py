@@ -3,8 +3,21 @@
 from __future__ import annotations
 
 import abc
+from importlib import resources
+from typing import Any
+
+import yaml
 
 from fantasy_assistant.model import Constraints, Fixture, Player, ScoringRules, Squad
+
+
+def load_yaml_config(name: str) -> dict[str, Any]:
+    """Read one of this package's bundled per-provider YAML config files."""
+    text = resources.files("fantasy_assistant.config").joinpath(name).read_text("utf-8")
+    data = yaml.safe_load(text)
+    if not isinstance(data, dict):
+        raise ValueError(f"config {name!r} is not a mapping")
+    return data
 
 
 class FantasyProvider(abc.ABC):

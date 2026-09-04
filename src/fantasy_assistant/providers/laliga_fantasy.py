@@ -12,12 +12,10 @@ import csv
 import datetime as dt
 import json
 from collections.abc import Iterable, Iterator
-from importlib import resources
 from pathlib import Path
 from typing import Any, Literal
 
 import httpx
-import yaml
 
 from fantasy_assistant.model import (
     Constraints,
@@ -27,7 +25,7 @@ from fantasy_assistant.model import (
     Position,
     ScoringRules,
 )
-from fantasy_assistant.providers.base import FantasyProvider
+from fantasy_assistant.providers.base import FantasyProvider, load_yaml_config
 
 _API_BASE = "https://api-fantasy.llt-services.com/api"
 _POSITION_BY_ID = {1: Position.GK, 2: Position.DEF, 3: Position.MID, 4: Position.FWD}
@@ -98,11 +96,11 @@ class LaLigaFantasyProvider(FantasyProvider):
         return [f for f in out if f.gameweek in weeks]
 
     def scoring_rules(self) -> ScoringRules:
-        data = self._load_config("laliga_scoring.yaml")
+        data = load_yaml_config("laliga_scoring.yaml")
         return ScoringRules(provider=self.key, events=data.get("events", {}))
 
     def constraints(self) -> Constraints:
-        data = self._load_config("laliga_constraints.yaml")
+        data = load_yaml_config("laliga_constraints.yaml")
         return Constraints(
             provider=self.key,
             squad_size=data["squad_size"],
@@ -190,11 +188,3 @@ class LaLigaFantasyProvider(FantasyProvider):
             if candidate.exists():
                 return candidate
         raise FileNotFoundError(f"no snapshot for {name!r} and no sample bundled")
-
-    @staticmethod
-    def _load_config(name: str) -> dict[str, Any]:
-        text = resources.files("fantasy_assistant.config").joinpath(name).read_text("utf-8")
-        data = yaml.safe_load(text)
-        if not isinstance(data, dict):
-            raise ValueError(f"config {name!r} is not a mapping")
-        return data

@@ -29,8 +29,8 @@ This tool does it explicitly:
 4. **Backtest** the whole thing over past gameweeks against "do nothing" and
    naive baselines, and report the points delta honestly.
 
-It's built around a `FantasyProvider` interface, so LaLiga Fantasy is just the
-first platform — Biwenger and Comunio slot in behind the same seam.
+It's built around a `FantasyProvider` interface — LaLiga Fantasy's own API and
+Biwenger's already slot in behind the same seam; Comunio would be a third.
 
 ## Status
 
@@ -84,7 +84,25 @@ fla squad backtest --squad examples/squad.example.yaml
 
 ### Where the data comes from
 
-- `--source auto` (default): the LaLiga Fantasy public endpoint; if it's
+Two ways to get real players instead of the fictional sample:
+
+**1. `--provider biwenger`** — a second, live `FantasyProvider` backed by
+[Biwenger](https://biwenger.as.com)'s public, unauthenticated API. No setup,
+no local file — every command works straight away:
+
+```bash
+fla players list --provider biwenger --sort form -n 10
+fla squad show --provider biwenger --squad my_real_squad.yaml
+```
+
+Biwenger runs its own game, but its `price` field mirrors the *official*
+LaLiga Fantasy price (verified against known real prices), so this provider
+reuses LaLiga Fantasy's own squad rules and scoring config — see
+`providers/biwenger.py`. It only ever has the *next* gameweek of fixtures.
+
+**2. `--provider laliga` sources** — the original provider, with a fallback chain:
+
+- `--source auto` (default): the official LaLiga Fantasy endpoint; if
   unreachable, a local `data/players.csv` you provided; failing that, the
   bundled sample.
 - `--source csv`: always the bundled **fictional** sample in `data/sample/` —
@@ -92,20 +110,17 @@ fla squad backtest --squad examples/squad.example.yaml
   Deterministic, offline, used by the tests and examples. Not real data.
 - `--source api`: the live endpoint only, no fallback.
 
-To run on real LaLiga data, pull it into the (git-ignored) `data/` folder:
+To populate that local `data/players.csv` (git-ignored) — useful for working
+offline, or when you want `laliga`'s multi-gameweek fixtures rather than
+Biwenger's single one:
 
 ```bash
 python scripts/fetch_squads.py                  # auto: official API, then Biwenger
 python scripts/fetch_squads.py --source biwenger
 ```
 
-`--source biwenger` uses [Biwenger](https://biwenger.as.com)'s public API: one
-unauthenticated request gives every player's **LaLiga Fantasy price**, season
-points, recent form and injury status, plus the next matchday. It's the reliable
-option while the official endpoint is down. (`--source transfermarkt`, needing
-`pip install -e ".[scrape]"`, gets real names only — prices/points estimated.)
-
-`fla` then picks up `data/players.csv` automatically under `--source auto`.
+(`--source transfermarkt`, needing `pip install -e ".[scrape]"`, gets real
+names only — prices/points are estimated, not real.)
 
 ### `squad.yaml`
 
@@ -180,9 +195,10 @@ its own," not a claim about the full tool.
 ## How it's built
 
 ```
-providers/          one adapter per platform (LaLiga Fantasy today)
-  base.py           the FantasyProvider interface
-  laliga_fantasy.py public API + CSV fallback
+providers/          one adapter per platform
+  base.py           the FantasyProvider interface + shared YAML config loader
+  laliga_fantasy.py official public API + CSV fallback + fictional sample
+  biwenger.py       Biwenger's public API, live, no local file needed
 model.py            Player, Squad, Fixture, ScoringRules, Constraints  (the shared vocabulary)
 squad_io.py         load squad.yaml + fuzzy-match names
 valuation.py        the no-model baseline valuation
@@ -208,7 +224,7 @@ payload — that's what keeps it multi-platform.
 - [x] **Backtest harness**: lineup/captain recommendation vs. hindsight-optimal vs. do-nothing, walk-forward with no lookahead (`backtest.py`, `fla squad backtest`)
 - [ ] Extend the backtest to cover transfers (needs a season of historical prices, which isn't available yet) and real fixture/minutes history instead of form alone
 - [ ] `import_squad()` for LaLiga Fantasy (optional, behind the same interface)
-- [ ] Biwenger provider
+- [x] Biwenger provider: live, unauthenticated, no local file needed, reuses LaLiga Fantasy's own rules (`providers/biwenger.py`, `--provider biwenger`)
 - [ ] Web dashboard (the core is already a library)
 - [ ] Scheduled weekly report (Telegram / email)
 
