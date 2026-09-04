@@ -38,6 +38,9 @@ fla = "fantasy_assistant.cli:app"
 Homepage = "https://github.com/dr-andromeda/fantasy-laliga-assistant"
 Repository = "https://github.com/dr-andromeda/fantasy-laliga-assistant"
 
+[tool.hatch.metadata]
+allow-direct-references = true  # solver extra pulls qubo-forge straight from its repo
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/fantasy_assistant"]
 
