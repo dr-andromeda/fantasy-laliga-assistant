@@ -29,6 +29,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-cov", "ruff>=0.5", "mypy>=1.9", "types-PyYAML"]
 scrape = ["beautifulsoup4>=4.12"]  # only for scripts/fetch_squads.py --source transfermarkt
+solver = ["qubo-forge @ git+https://github.com/dr-andromeda/qubo-forge.git"]  # fla squad qubo-transfers
 
 [project.scripts]
 fla = "fantasy_assistant.cli:app"
@@ -65,3 +66,7 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = ["numpy.*"]
 follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["qubo_forge.*"]
+ignore_missing_imports = true

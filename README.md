@@ -55,6 +55,14 @@ Biwenger's already slot in behind the same seam; Comunio would be a third.
   each player's own trailing gameweek history. No lookahead: every prediction
   only sees gameweeks before the one it's scored against. See
   [How the backtest works](#how-the-backtest-works).
+- `fla squad qubo-transfers` — cross-position squad restructuring: formulates
+  "best legal, affordable squad" as a QUBO and solves it with
+  [qubo-forge](https://github.com/dr-andromeda/qubo-forge)'s exact and
+  metaheuristic solvers, so a recommendation can change more than one
+  position at once (unlike `squad transfers`). See
+  [How the QUBO comparison works](#how-the-qubo-comparison-works) — including
+  a real, reproducible finding about which solver actually handles this
+  problem's constraints better.
 
 See [Roadmap](#roadmap) for what's still open.
 
@@ -64,6 +72,9 @@ See [Roadmap](#roadmap) for what's still open.
 git clone https://github.com/dr-andromeda/fantasy-laliga-assistant
 cd fantasy-laliga-assistant
 pip install -e ".[dev]"
+
+# optional, for `fla squad qubo-transfers` (pulls in github.com/dr-andromeda/qubo-forge)
+pip install -e ".[solver]"
 ```
 
 ## Use
@@ -80,6 +91,10 @@ fla squad transfers --squad examples/squad.example.yaml --transfers 3
 
 # backtest the lineup/captain pick against static and hindsight
 fla squad backtest --squad examples/squad.example.yaml
+
+# cross-position squad restructuring, exact vs. simulated annealing vs. tabu
+pip install -e ".[solver]"
+fla squad qubo-transfers --squad examples/squad.example.yaml
 ```
 
 ### Where the data comes from
@@ -192,6 +207,55 @@ touch transfers, which would need a season of price history this project
 doesn't have. Treat the output as "how good is the lineup-picking logic on
 its own," not a claim about the full tool.
 
+## How the QUBO comparison works
+
+`squad transfers` only considers same-position swaps — the one kind of move
+that's legal on its own. `fla squad qubo-transfers` tackles the harder
+version: pick the best legal, affordable squad from a pool spanning **every**
+position at once, so a recommendation can restructure the squad across
+positions in one shot. That joint combinatorial selection is what
+[qubo-forge](https://github.com/dr-andromeda/qubo-forge) — a QUBO/Ising
+modelling library from the same portfolio — and
+[metaheuristics-jvm](https://github.com/dr-andromeda/metaheuristics-jvm)
+exist for.
+
+**The model.** One binary variable per player in a candidate pool (the owned
+squad plus the top few unowned players per position by projected points).
+Selecting a player "costs" their price against the squad's *bankroll*
+(`budget_remaining` + the value of the whole squad if sold) — so keeping a
+player and buying one are the same kind of decision, no separate buy/sell
+bookkeeping needed:
+
+```
+maximize   sum_i expected_i * x_i
+subject to sum_i x_i == squad_by_position[pos]   for each position
+           sum_i price_i * x_i <= bankroll
+```
+
+Position counts become equality-constraint penalties; the budget inequality
+becomes an equality via a binary-decomposed slack variable (the standard
+Lucas 2014 trick — the same one `qubo_forge.problems.knapsack` uses).
+
+**Three solvers, one comparison.** qubo-forge's exact brute-force solver runs
+on a deliberately small instance as ground truth (only tractable up to ~22
+variables — a real 15-player squad already exceeds that on its own, so exact
+validation lives in the test suite on synthetic squads, not in normal CLI
+runs); simulated annealing and tabu search then run on the full, realistic
+pool.
+
+**A real finding, not just a demo.** At realistic pool sizes, satisfying the
+position-count constraints *and* the budget constraint together is genuinely
+hard for simple single-spin-flip search — each is easy alone, but the
+cheapest fix for a budget overshoot (drop a player) breaks a position count,
+and vice versa. Simulated annealing's random-accept moves rarely escape that
+trap in a practical sweep budget; tabu search's greedy least-cost move plus
+restarts reliably does much better here. That's an empirical result about
+which search strategy suits this constraint shape — see the "Honesty about
+scale" section of `qubo_squad.py` for the numbers, and `fla squad
+qubo-transfers` reports exactly this: feasibility, cost, energy and solve
+time for every solver, side by side, never assuming a heuristic's answer is
+valid without checking it.
+
 ## How it's built
 
 ```
@@ -206,6 +270,7 @@ prediction.py       the points predictor (form x minutes x fixture)
 optimize.py         lineup + captain optimizer
 transfers.py        transfer optimizer (same-position swaps, budget-aware)
 backtest.py         walk-forward backtest: recommended vs. static vs. hindsight
+qubo_squad.py       cross-position squad QUBO + qubo-forge solver comparison
 cli.py              the `fla` command
 config/             per-provider scoring rules and squad constraints (YAML)
 ```
@@ -220,7 +285,8 @@ payload — that's what keeps it multi-platform.
 - [ ] Event-level scoring engine driven by `config/*_scoring.yaml` (predict goals / assists / clean sheets, then score them)
 - [x] Lineup + captain optimizer: pick the best legal XI from the players you own, exact by formation enumeration (`optimize.py`, `fla squad lineup`)
 - [x] Transfer optimizer: same-position swaps, exact branch-and-bound over a pruned candidate set, budget-aware per the verified overdraft rule (`transfers.py`, `fla squad transfers`)
-- [ ] Cross-position squad restructuring, and a solver comparison against qubo-forge / metaheuristics-jvm on the larger combinatorial version of the problem
+- [x] Cross-position squad restructuring: QUBO formulation solved with qubo-forge (exact / simulated annealing / tabu), a real result about which solver suits this constraint shape (`qubo_squad.py`, `fla squad qubo-transfers`)
+- [ ] The same comparison against metaheuristics-jvm (Java), and a decomposition/constraint-aware encoding that doesn't need the empirical tuning `qubo_squad.py` currently does
 - [x] **Backtest harness**: lineup/captain recommendation vs. hindsight-optimal vs. do-nothing, walk-forward with no lookahead (`backtest.py`, `fla squad backtest`)
 - [ ] Extend the backtest to cover transfers (needs a season of historical prices, which isn't available yet) and real fixture/minutes history instead of form alone
 - [ ] `import_squad()` for LaLiga Fantasy (optional, behind the same interface)

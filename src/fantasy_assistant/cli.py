@@ -14,6 +14,7 @@ from fantasy_assistant.model import Position, Squad
 from fantasy_assistant.optimize import best_lineup
 from fantasy_assistant.prediction import PointsPredictor, PredictorConfig, SquadProjection
 from fantasy_assistant.providers import AVAILABLE, get_provider
+from fantasy_assistant.qubo_squad import compare_solvers
 from fantasy_assistant.squad_io import SquadResolutionError, load_squad, match_player
 from fantasy_assistant.transfers import suggest_transfers
 from fantasy_assistant.valuation import SquadValuation, value_squad
@@ -338,6 +339,81 @@ def squad_backtest(
         console.print(
             f"Captured [b]{report.capture_rate * 100:.0f}%[/b] of the hindsight-optimal points"
         )
+
+
+@squad_app.command("qubo-transfers")
+def squad_qubo_transfers(
+    squad_file: Annotated[Path, typer.Option("--squad", "-s", help="Path to squad.yaml")],
+    provider: ProviderOpt = "laliga",
+    source: SourceOpt = "auto",
+    horizon: HorizonOpt = 3,
+    candidates: Annotated[
+        int,
+        typer.Option("--candidates", help="Unowned candidates per position in the solver's pool"),
+    ] = 3,
+    seed: Annotated[int, typer.Option("--seed", help="RNG seed, for reproducible runs")] = 7,
+) -> None:
+    """Cross-position squad restructuring via QUBO: exact vs. simulated annealing vs. tabu.
+
+    Unlike `squad transfers` (same-position swaps only), this picks the best legal,
+    affordable squad from a pool spanning every position at once -- solved with
+    qubo-forge (`pip install -e ".[solver]"`). See `fantasy_assistant.qubo_squad`
+    for the formulation and its honesty caveats about solver scale.
+    """
+    prov = get_provider(provider, source=source)
+    universe = prov.load_players()
+    fixtures = prov.fixtures(upcoming=max(horizon, 5))
+    constraints = prov.constraints()
+
+    try:
+        squad = load_squad(squad_file, universe)
+    except (SquadResolutionError, FileNotFoundError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    predictor = PointsPredictor(universe, fixtures, PredictorConfig.load())
+    expected = {p.id: predictor.predict(p, horizon).expected for p in universe}
+
+    try:
+        report = compare_solvers(
+            squad, universe, expected, constraints,
+            candidates_per_position=candidates, seed=seed,
+        )
+    except ImportError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    names = {p.id: p.name for p in universe}
+    owned_ids = {p.id for p in squad.owned}
+
+    table = Table(title=f"Solver comparison — {report.pool_size}-variable pool")
+    for col in ("Solver", "Feasible", "Pts", "Cost", "Energy", "Time (s)"):
+        table.add_column(col, justify="left" if col in ("Solver", "Feasible") else "right")
+    for sel in (report.exhaustive, report.simulated_annealing, report.tabu):
+        if sel is None:
+            table.add_row("exhaustive", "[dim]skipped[/dim]", "-", "-", "-", "-")
+            continue
+        feasible = "[green]yes[/green]" if sel.feasible else "[red]no[/red]"
+        table.add_row(
+            sel.solver, feasible, f"{sel.total_expected:.1f}",
+            f"{sel.total_cost / 1_000_000:.2f}M", f"{sel.energy:.1f}", f"{sel.solve_seconds:.3f}",
+        )
+    console.print(table)
+    console.print(f"\nBankroll: [b]{report.bankroll / 1_000_000:.2f}M[/b]")
+    console.print(report.note)
+
+    for sel in (report.exhaustive, report.simulated_annealing, report.tabu):
+        if sel is None:
+            continue
+        if not sel.feasible:
+            console.print(f"\n[red]{sel.solver}: infeasible -- {'; '.join(sel.violations)}[/red]")
+            continue
+        chosen = set(sel.player_ids)
+        into = sorted(names.get(pid, pid) for pid in chosen - owned_ids)
+        out = sorted(names.get(pid, pid) for pid in owned_ids - chosen if pid in names)
+        console.print(f"\n[b]{sel.solver}[/b] vs. your current squad:")
+        console.print(f"  IN:  {', '.join(into) if into else '(no change)'}")
+        console.print(f"  OUT: {', '.join(out) if out else '(no change)'}")
 
 
 @app.command()
