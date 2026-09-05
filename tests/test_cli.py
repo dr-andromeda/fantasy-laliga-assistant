@@ -67,3 +67,48 @@ def test_providers_command() -> None:
     result = runner.invoke(app, ["providers"])
     assert result.exit_code == 0
     assert "laliga" in result.output
+
+
+def test_squad_init_writes_a_resolved_squad_yaml(tmp_path: Path) -> None:
+    quick_list = tmp_path / "my_team.txt"
+    quick_list.write_text("Catalan\nAbad *\nFerreras (bench)\n", encoding="utf-8")
+    out_file = tmp_path / "squad.yaml"
+
+    result = runner.invoke(
+        app, ["squad", "init", "--source", "csv", "--from", str(quick_list), "--out", str(out_file)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Wrote 3 players" in result.output
+    text = out_file.read_text(encoding="utf-8")
+    assert "Catalan" in text
+    assert "captain: true" in text
+    assert "Ferreras (bench)" in text
+
+
+def test_squad_init_refuses_to_overwrite_without_force(tmp_path: Path) -> None:
+    quick_list = tmp_path / "my_team.txt"
+    quick_list.write_text("Catalan\n", encoding="utf-8")
+    out_file = tmp_path / "squad.yaml"
+    out_file.write_text("existing content", encoding="utf-8")
+
+    result = runner.invoke(
+        app, ["squad", "init", "--source", "csv", "--from", str(quick_list), "--out", str(out_file)]
+    )
+
+    assert result.exit_code == 1
+    assert out_file.read_text(encoding="utf-8") == "existing content"
+
+
+def test_squad_init_reports_unresolved_names(tmp_path: Path) -> None:
+    quick_list = tmp_path / "my_team.txt"
+    quick_list.write_text("Totally Fake Player\n", encoding="utf-8")
+    out_file = tmp_path / "squad.yaml"
+
+    result = runner.invoke(
+        app, ["squad", "init", "--source", "csv", "--from", str(quick_list), "--out", str(out_file)]
+    )
+
+    assert result.exit_code == 1
+    assert "Totally Fake Player" in result.output
+    assert not out_file.exists()

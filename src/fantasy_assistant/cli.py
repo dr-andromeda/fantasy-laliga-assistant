@@ -15,6 +15,7 @@ from fantasy_assistant.optimize import best_lineup
 from fantasy_assistant.prediction import PointsPredictor, PredictorConfig, SquadProjection
 from fantasy_assistant.providers import AVAILABLE, get_provider
 from fantasy_assistant.qubo_squad import compare_solvers
+from fantasy_assistant.squad_init import parse_quick_list, render_squad_yaml, resolve_quick_list
 from fantasy_assistant.squad_io import SquadResolutionError, load_squad, match_player
 from fantasy_assistant.transfers import suggest_transfers
 from fantasy_assistant.valuation import SquadValuation, value_squad
@@ -79,6 +80,53 @@ def players_list(
             f"{p.form():.1f}", f"{p.points_per_million():.1f}", p.status.value,
         )
     console.print(table)
+
+
+@squad_app.command("init")
+def squad_init(
+    input_file: Annotated[
+        Path, typer.Option("--from", "-f", help="Text file: one player name per line")
+    ],
+    out_file: Annotated[Path, typer.Option("--out", "-o", help="Where to write squad.yaml")],
+    provider: ProviderOpt = "laliga",
+    source: SourceOpt = "auto",
+    budget: Annotated[int, typer.Option("--budget", help="Budget remaining, in euros")] = 0,
+    force: Annotated[bool, typer.Option("--force", help="Overwrite --out if it exists")] = False,
+) -> None:
+    """Resolve a quick, flat list of player names into a canonical squad.yaml.
+
+    No login needed -- see `fantasy_assistant.squad_init` for why a real
+    "import my team" isn't implemented. One name per line in --from; "*" marks
+    the captain, "(bench)" keeps a player out of the XI, "#" starts a comment.
+    """
+    if out_file.exists() and not force:
+        console.print(f"[red]{out_file} already exists -- pass --force to overwrite[/red]")
+        raise typer.Exit(1)
+
+    prov = get_provider(provider, source=source)
+    universe = prov.load_players()
+    constraints = prov.constraints()
+
+    entries = parse_quick_list(input_file.read_text(encoding="utf-8"))
+    if not entries:
+        console.print(f"[red]{input_file} has no player names[/red]")
+        raise typer.Exit(1)
+
+    try:
+        squad = resolve_quick_list(entries, universe)
+    except SquadResolutionError as exc:
+        console.print("[red]Could not resolve every name:[/red]")
+        console.print(str(exc))
+        raise typer.Exit(1) from exc
+
+    out_file.write_text(render_squad_yaml(squad, budget), encoding="utf-8")
+    console.print(f"[green]Wrote {len(squad.players)} players to {out_file}[/green]")
+
+    problems = squad.validate_against(constraints)
+    if problems:
+        console.print("[yellow]Heads up -- this squad doesn't pass the rules yet:[/yellow]")
+        for p in problems:
+            console.print(f"  - {p}")
 
 
 @squad_app.command("show")

@@ -24,8 +24,12 @@ class FantasyProvider(abc.ABC):
     """Read-only access to one fantasy platform's public data.
 
     v1 only needs the four public methods below; :meth:`import_squad` is optional
-    and may raise :class:`NotImplementedError` — the user can always supply their
-    squad by hand instead.
+    and may raise :class:`NotImplementedError`. A real implementation would need
+    the platform's private, per-user API -- a login token this project
+    deliberately doesn't handle, since every provider here only reads public
+    data. :mod:`fantasy_assistant.squad_init` (``fla squad init``) is the
+    intended substitute: a quick, typo-tolerant way to supply a squad by hand
+    instead of a real import.
     """
 
     #: short lowercase identifier, e.g. "laliga"

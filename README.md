@@ -38,6 +38,9 @@ Biwenger's already slot in behind the same seam; Comunio would be a third.
 
 - `fla players list` — browse the player universe (price, season points, recent
   form, points per €M), filtered and sorted.
+- `fla squad init` — type a quick, flat list of player names (no YAML) and get
+  back a canonical `squad.yaml`, every typo caught at once. See
+  [`squad.yaml`](#squadyaml) for why this exists instead of a real "import my team".
 - `fla squad show` — take a hand-written `squad.yaml`, resolve the names, print it
   valued and checked against the squad rules, and **project its points** for the
   next N gameweeks (form × availability × fixture difficulty), with a band and a
@@ -82,6 +85,9 @@ pip install -e ".[solver]"
 ```bash
 # top forwards by recent form
 fla players list --position FWD --sort form -n 10
+
+# turn a quick list of names into a squad.yaml, no YAML syntax needed
+fla squad init --from my_team.txt --out squad.yaml --budget 2_600_000
 
 # value a squad you typed by hand
 fla squad show --squad examples/squad.example.yaml
@@ -156,6 +162,27 @@ players:
   - Lewandowski
   # ...
 ```
+
+**Why type this by hand instead of importing your real team?** A real "import
+my team" needs the platform's private, per-user API -- a login token this
+project deliberately doesn't handle (see [Caveats](#caveats): only public,
+unauthenticated data, same rule as the two providers above). `fla squad init`
+is the practical middle ground: type a flat list, no YAML, and get this file
+back already resolved:
+
+```bash
+cat > my_team.txt <<'EOF'
+Courtois
+Carvajal
+Bellingham *          # "*" marks the captain
+Vinicius (bench)      # "(bench)" keeps them out of the XI
+# ...
+EOF
+fla squad init --from my_team.txt --out squad.yaml --budget 2_600_000
+```
+
+Every unresolved name is reported together, not one-at-a-time -- with ~15
+names to type, seeing every typo in one pass beats a fix-one-rerun loop.
 
 ## How the transfer optimizer works
 
@@ -265,6 +292,7 @@ providers/          one adapter per platform
   biwenger.py       Biwenger's public API, live, no local file needed
 model.py            Player, Squad, Fixture, ScoringRules, Constraints  (the shared vocabulary)
 squad_io.py         load squad.yaml + fuzzy-match names
+squad_init.py       quick-list -> squad.yaml (typo-tolerant, no login needed)
 valuation.py        the no-model baseline valuation
 prediction.py       the points predictor (form x minutes x fixture)
 optimize.py         lineup + captain optimizer
@@ -289,7 +317,7 @@ payload — that's what keeps it multi-platform.
 - [ ] The same comparison against metaheuristics-jvm (Java), and a decomposition/constraint-aware encoding that doesn't need the empirical tuning `qubo_squad.py` currently does
 - [x] **Backtest harness**: lineup/captain recommendation vs. hindsight-optimal vs. do-nothing, walk-forward with no lookahead (`backtest.py`, `fla squad backtest`)
 - [ ] Extend the backtest to cover transfers (needs a season of historical prices, which isn't available yet) and real fixture/minutes history instead of form alone
-- [ ] `import_squad()` for LaLiga Fantasy (optional, behind the same interface)
+- [x] Squad entry without hand-written YAML: `fla squad init` resolves a quick, flat name list into a canonical `squad.yaml` (`squad_init.py`) -- a deliberate substitute for a real `import_squad()`, which would need a login token this public-data-only project doesn't handle
 - [x] Biwenger provider: live, unauthenticated, no local file needed, reuses LaLiga Fantasy's own rules (`providers/biwenger.py`, `--provider biwenger`)
 - [ ] Web dashboard (the core is already a library)
 - [ ] Scheduled weekly report (Telegram / email)
