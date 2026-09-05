@@ -7,6 +7,7 @@ from fantasy_assistant.prediction import (
     PointsPredictor,
     PredictorConfig,
     _exp_weighted_mean,
+    _is_rotation_risk,
     team_strength,
 )
 from fantasy_assistant.providers.laliga_fantasy import LaLigaFantasyProvider
@@ -108,3 +109,53 @@ def test_explain_is_readable(universe: list[Player], fixtures: list[Fixture]) ->
     text = proj.explain()
     assert "Z:" in text
     assert "GW" in text
+
+
+def test_is_rotation_risk_looks_only_at_the_recent_window() -> None:
+    assert not _is_rotation_risk([8, 6, 7], window=3, min_zeros=2)
+    assert _is_rotation_risk([8, 0, 0], window=3, min_zeros=2)
+    # the zeros are old news -- the last 3 games were all starts
+    assert not _is_rotation_risk([0, 0, 8, 6, 7], window=3, min_zeros=2)
+
+
+def test_is_rotation_risk_needs_enough_history_to_judge() -> None:
+    # only one gameweek recorded, even though it's a zero -- not enough of a
+    # pattern to call yet
+    assert not _is_rotation_risk([0], window=3, min_zeros=2)
+
+
+def test_rotation_risk_dampens_minutes_factor(
+    universe: list[Player], fixtures: list[Fixture]
+) -> None:
+    pred = PointsPredictor(universe, fixtures)
+    # recently steady starter vs. someone whose last two games were unused-sub zeros
+    playing = _player("Playing", "Costa Verde CF", Position.MID, [8, 6, 7])
+    benched = _player("Benched", "Costa Verde CF", Position.MID, [8, 6, 7, 0, 0])
+
+    playing_proj = pred.predict(playing, horizon=2)
+    benched_proj = pred.predict(benched, horizon=2)
+
+    assert not playing_proj.rotation_risk
+    assert benched_proj.rotation_risk
+    assert benched_proj.minutes_factor == pytest.approx(
+        playing_proj.minutes_factor * PredictorConfig().rotation_risk_factor
+    )
+
+
+def test_rotation_risk_does_not_override_injury_status(
+    universe: list[Player], fixtures: list[Fixture]
+) -> None:
+    pred = PointsPredictor(universe, fixtures)
+    injured = _player(
+        "InjuredAndRotated", "Costa Verde CF", Position.FWD, [0, 0, 0], PlayerStatus.INJURED
+    )
+    proj = pred.predict(injured)
+    assert proj.rotation_risk
+    assert proj.minutes_factor == 0.0
+    assert proj.expected == 0.0
+
+
+def test_explain_flags_rotation_risk(universe: list[Player], fixtures: list[Fixture]) -> None:
+    pred = PointsPredictor(universe, fixtures)
+    benched = _player("Benched2", "Costa Verde CF", Position.MID, [8, 6, 7, 0, 0])
+    assert "rotation risk" in pred.predict(benched).explain()

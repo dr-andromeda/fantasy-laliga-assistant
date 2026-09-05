@@ -309,7 +309,7 @@ payload — that's what keeps it multi-platform.
 ## Roadmap
 
 - [x] Points predictor: form + availability + fixture difficulty → expected points over N gameweeks, with an uncertainty band and per-gameweek explainability (`prediction.py`)
-- [ ] Real minutes model (rotation / injury history) to replace the status multiplier
+- [x] Rotation-risk proxy: dampens `minutes_factor` when a player's recent gameweeks show a pattern of zero-point returns, on top of their injury/suspension status (`prediction.py`) -- an honest proxy, not a real minutes model, since no source here has actual minutes-played data
 - [ ] Event-level scoring engine driven by `config/*_scoring.yaml` (predict goals / assists / clean sheets, then score them)
 - [x] Lineup + captain optimizer: pick the best legal XI from the players you own, exact by formation enumeration (`optimize.py`, `fla squad lineup`)
 - [x] Transfer optimizer: same-position swaps, exact branch-and-bound over a pruned candidate set, budget-aware per the verified overdraft rule (`transfers.py`, `fla squad transfers`)

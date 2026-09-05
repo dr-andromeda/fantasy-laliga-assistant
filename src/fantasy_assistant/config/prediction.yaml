@@ -5,14 +5,21 @@
 # 3 means a game 3 weeks ago counts half as much as last week's.
 form_half_life: 3.0
 
-# Expected share of minutes by availability status. A real minutes model replaces
-# this later.
+# Expected share of minutes by availability status.
 status_minutes:
   ok: 1.0
   doubtful: 0.55
   injured: 0.0
   suspended: 0.0
   unknown: 0.9
+
+# Rotation-risk proxy: no source here has real minutes-played data, so a run of
+# zero-point gameweeks stands in for "probably didn't play". If the last
+# rotation_risk_window gameweeks include >= rotation_risk_min_zeros zeros,
+# minutes_factor is further multiplied by rotation_risk_factor.
+rotation_risk_window: 3
+rotation_risk_min_zeros: 2
+rotation_risk_factor: 0.7
 
 # How much a home/away split swings the fixture factor (+/-).
 home_advantage: 0.08

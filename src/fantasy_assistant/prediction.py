@@ -5,10 +5,22 @@ Expected fantasy points for a player over the next few gameweeks are
     expected_gw = form_rate * minutes_factor * fixture_factor(gw)
 
 * ``form_rate`` — exponentially-weighted mean of recent per-gameweek points.
-* ``minutes_factor`` — a 0..1 availability multiplier (from injury status for now;
-  a real minutes model replaces it later).
+* ``minutes_factor`` — a 0..1 availability multiplier: the current injury/
+  suspension status, further dampened if the player looks like a rotation
+  risk (see below).
 * ``fixture_factor`` — softens or lifts the estimate for the specific opponent and
   home/away split, using a crude team-strength rating.
+
+**On "rotation risk", honestly.** No data source here exposes real minutes
+played per gameweek -- only the fantasy points each week produced. A game
+with zero points is not proof a player didn't play (a shutout defender can
+score >0, but so can a red-carded starter score <=0), but it is the closest
+proxy available, and repeated zeros in a short window is a reasonably strong
+signal of being an unused substitute. `rotation_risk_factor` in
+`PredictorConfig` further dampens `minutes_factor` when that pattern shows up
+in `Player.points_by_gameweek` — a proxy, clearly labelled as one, not a real
+minutes model. Building an actual one needs data (starts, minutes played)
+this project's public sources don't provide.
 
 Nothing here is clever. It is the honest baseline every later model is measured
 against, and every number it produces is explainable — see :meth:`Projection.explain`.
@@ -41,6 +53,9 @@ class PredictorConfig(BaseModel):
     fixture_factor_min: float = 0.55
     fixture_factor_max: float = 1.45
     uncertainty_k: float = 1.0
+    rotation_risk_window: int = 3
+    rotation_risk_min_zeros: int = 2
+    rotation_risk_factor: float = 0.7
 
     @classmethod
     def load(cls) -> PredictorConfig:
@@ -68,13 +83,15 @@ class Projection(BaseModel):
     high: float
     form_rate: float
     minutes_factor: float
+    rotation_risk: bool = False
     per_gameweek: list[GameweekProjection]
 
     def explain(self) -> str:
+        risk_note = "  [rotation risk: recent zero-score games]" if self.rotation_risk else ""
         head = (
             f"{self.player_name}: {self.expected:.1f} pts over {self.horizon} GW "
             f"(band {self.low:.1f}-{self.high:.1f})\n"
-            f"  form rate {self.form_rate:.1f}/GW x minutes {self.minutes_factor:.2f}"
+            f"  form rate {self.form_rate:.1f}/GW x minutes {self.minutes_factor:.2f}{risk_note}"
         )
         lines = [
             f"  GW{g.gameweek}: {'vs' if g.is_home else '@'} {g.opponent or 'avg fixture'} "
@@ -109,6 +126,16 @@ def _exp_weighted_mean(values: list[float], half_life: float) -> float:
 
 def _clamp(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, x))
+
+
+def _is_rotation_risk(history: list[int], window: int, min_zeros: int) -> bool:
+    """Flag a player whose last ``window`` gameweeks include >= ``min_zeros`` zeros.
+
+    A zero-point gameweek is a proxy for "probably didn't play", not proof of
+    it -- see the module docstring for why this is the best signal available.
+    """
+    recent = history[-window:]
+    return len(recent) >= window and recent.count(0) >= min_zeros
 
 
 def team_strength(players: list[Player]) -> dict[str, float]:
@@ -156,7 +183,12 @@ class PointsPredictor:
         form_rate = _exp_weighted_mean(
             [float(x) for x in player.points_by_gameweek], cfg.form_half_life
         )
+        rotation_risk = _is_rotation_risk(
+            player.points_by_gameweek, cfg.rotation_risk_window, cfg.rotation_risk_min_zeros
+        )
         minutes = cfg.status_minutes.get(player.status, 0.9)
+        if rotation_risk:
+            minutes *= cfg.rotation_risk_factor
 
         per_gw: list[GameweekProjection] = []
         fixtures = self._team_fixtures(player.team, horizon)
@@ -201,6 +233,7 @@ class PointsPredictor:
             high=expected + spread,
             form_rate=form_rate,
             minutes_factor=minutes,
+            rotation_risk=rotation_risk,
             per_gameweek=per_gw,
         )
 
