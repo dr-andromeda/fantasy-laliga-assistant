@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fantasy_assistant.cli import app
@@ -61,6 +62,40 @@ def test_squad_lineup_recommends_an_xi() -> None:
 def test_squad_show_reports_missing_file() -> None:
     result = runner.invoke(app, ["squad", "show", "--source", "csv", "--squad", "nope.yaml"])
     assert result.exit_code == 1
+
+
+def test_squad_transfers_suggests_a_swap() -> None:
+    result = runner.invoke(
+        app, ["squad", "transfers", "--source", "csv", "--squad", str(EXAMPLE), "--transfers", "2"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Suggested transfers" in result.output or "No transfer" in result.output
+    assert "budget" in result.output.lower()
+
+
+def test_squad_backtest_reports_all_three_arms() -> None:
+    result = runner.invoke(
+        app, ["squad", "backtest", "--source", "csv", "--squad", str(EXAMPLE)]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Backtest" in result.output
+    assert "hindsight" in result.output.lower()
+    assert "Edge over doing nothing" in result.output
+
+
+def test_squad_qubo_transfers_compares_solvers() -> None:
+    pytest.importorskip("qubo_forge")
+    result = runner.invoke(
+        app,
+        [
+            "squad", "qubo-transfers", "--source", "csv", "--squad", str(EXAMPLE),
+            "--candidates", "2",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Solver comparison" in result.output
+    assert "tabu" in result.output
+    assert "Bankroll" in result.output
 
 
 def test_providers_command() -> None:

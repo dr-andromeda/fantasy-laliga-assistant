@@ -310,17 +310,17 @@ payload — that's what keeps it multi-platform.
 
 - [x] Points predictor: form + availability + fixture difficulty → expected points over N gameweeks, with an uncertainty band and per-gameweek explainability (`prediction.py`)
 - [x] Rotation-risk proxy: dampens `minutes_factor` when a player's recent gameweeks show a pattern of zero-point returns, on top of their injury/suspension status (`prediction.py`) -- an honest proxy, not a real minutes model, since no source here has actual minutes-played data
-- [ ] Event-level scoring engine driven by `config/*_scoring.yaml` (predict goals / assists / clean sheets, then score them)
+- [ ] Event-level scoring engine driven by `config/*_scoring.yaml` (predict goals / assists / clean sheets, then score them) -- **blocked**: none of this project's public sources expose shot/xG/event data to predict from, only aggregate fantasy points; doing this honestly needs a new data source, not just more code
 - [x] Lineup + captain optimizer: pick the best legal XI from the players you own, exact by formation enumeration (`optimize.py`, `fla squad lineup`)
 - [x] Transfer optimizer: same-position swaps, exact branch-and-bound over a pruned candidate set, budget-aware per the verified overdraft rule (`transfers.py`, `fla squad transfers`)
 - [x] Cross-position squad restructuring: QUBO formulation solved with qubo-forge (exact / simulated annealing / tabu), a real result about which solver suits this constraint shape (`qubo_squad.py`, `fla squad qubo-transfers`)
-- [ ] The same comparison against metaheuristics-jvm (Java), and a decomposition/constraint-aware encoding that doesn't need the empirical tuning `qubo_squad.py` currently does
+- [ ] The same comparison against metaheuristics-jvm (Java) -- its REST API currently only accepts `maxcut`/`number_partitioning`, so this needs a generic-QUBO endpoint added there first, a change to that repo, not this one -- plus a decomposition/constraint-aware encoding that doesn't need the empirical tuning `qubo_squad.py` currently does
 - [x] **Backtest harness**: lineup/captain recommendation vs. hindsight-optimal vs. do-nothing, walk-forward with no lookahead (`backtest.py`, `fla squad backtest`)
-- [ ] Extend the backtest to cover transfers (needs a season of historical prices, which isn't available yet) and real fixture/minutes history instead of form alone
+- [ ] Extend the backtest to cover transfers -- **blocked**: needs a season of historical prices, which no source here provides (only current, live prices) -- and real fixture/minutes history instead of form alone
 - [x] Squad entry without hand-written YAML: `fla squad init` resolves a quick, flat name list into a canonical `squad.yaml` (`squad_init.py`) -- a deliberate substitute for a real `import_squad()`, which would need a login token this public-data-only project doesn't handle
 - [x] Biwenger provider: live, unauthenticated, no local file needed, reuses LaLiga Fantasy's own rules (`providers/biwenger.py`, `--provider biwenger`)
-- [ ] Web dashboard (the core is already a library)
-- [ ] Scheduled weekly report (Telegram / email)
+- [ ] Web dashboard (the core is already a library -- a genuinely open, unstarted piece of work, not blocked on anything)
+- [ ] Scheduled weekly report (Telegram / email -- needs the user's own bot token / SMTP credentials to build against, not just code)
 
 ## Caveats
 
